@@ -17,7 +17,12 @@ def send_telegram(text: str) -> None:
     token = os.environ["ROUTINE_TELEGRAM_BOT_TOKEN"]
     chat_id = os.environ["ROUTINE_TELEGRAM_CHAT_ID"]
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    response = requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=15)
+    try:
+        response = requests.post(url, json={"chat_id": chat_id, "text": text}, timeout=15)
+    except requests.exceptions.RequestException as error:
+        raise NotifierError(
+            f"Telegram sendMessage request failed: {type(error).__name__}"
+        ) from None
     if response.status_code != 200:
         raise NotifierError(
             f"Telegram sendMessage failed with status {response.status_code}: {response.text}"

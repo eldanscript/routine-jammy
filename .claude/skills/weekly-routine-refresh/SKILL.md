@@ -52,8 +52,20 @@ python3 src/routine-jammy/weekly_refresh.py
 
 ## 실패 시
 
-Apps Script가 응답하지 않거나(`SheetClientError`) 배포가 아직 안 된 상태, 또는 `git push`가
-실패하면 `execute()`가 예외를 다시 던지기 전에 Telegram으로 실패 메시지(예외 메시지 포함)를
-보낸다 — 이 경우 `docs/data/current-week.json`은 변경되지 않으므로 이전 주 루틴이 그대로
-유지된다. Telegram 발송 자체가 실패해도(토큰 오류 등) 원래 예외는 그대로 전파되어 크론
-로그/종료 코드에 남는다. 실패 알림을 받으면 `apps-script/README.md`의 배포 상태를 확인한다.
+`execute()`는 실패 지점과 무관하게 예외를 다시 던지기 전에 Telegram으로 실패 메시지(예외
+메시지 포함)를 보낸다. 실패 지점에 따라 실제 상태가 다르므로 구분해서 대응한다:
+
+- **`run()` 내부에서 실패** (예: Apps Script가 응답하지 않는 `SheetClientError`, 배포가 아직
+  안 된 상태): `commit_and_push()`는 아예 호출되지 않으므로 아무 것도 바뀌지 않았다.
+  `docs/data/current-week.json`, `history/`는 모두 이전 상태 그대로이고 이전 주 루틴이 그대로
+  유지된다. 원인을 해결한 뒤 스크립트를 그냥 재실행하면 된다.
+- **`commit_and_push()` 내부에서 `git push`가 실패**: `run()`은 이미 성공해서
+  `docs/data/current-week.json`을 다음 주차로 갱신해 디스크에 썼고, `commit_and_push()`는
+  add → commit → push 순서라 **로컬 커밋까지는 이미 만들어진 상태**다 — push만 안 됐을 뿐
+  변경 사항 자체는 이미 반영되어 있다. 이 경우 스크립트를 처음부터 재실행하면 이번 주
+  데이터를 또 가져와 중복 처리하게 되므로, 원인(네트워크/인증 등)을 먼저 확인한 뒤
+  저장소에서 `git status`/`git log`로 로컬 커밋이 있는지 확인하고 `git push origin main`만
+  수동으로 다시 실행한다.
+
+Telegram 발송 자체가 실패해도(토큰 오류 등) 원래 예외는 그대로 전파되어 크론 로그/종료
+코드에 남는다. 실패 알림을 받으면 `apps-script/README.md`의 배포 상태를 확인한다.

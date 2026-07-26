@@ -126,4 +126,4 @@ curl -sS -o /dev/null -w "%{http_code}\n" https://eldanscript.github.io/routine-
       직접 BotFather와 대화해야 함
 - [ ] GitHub Pages 배포 확인 curl (위 "최초 설치" 4번) — 1번 완료 후에만 의미 있음
 - [ ] 아이폰에 홈 화면 아이콘 추가 (위 "최초 설치" 5번) — 물리적 기기 조작 필요
-- [ ] crontab 엔트리 설치 (위 "Task 8 자동화" 참고) — 엔트포인트 동작 확인 후 컨트롤러가 설치
+- [ ] crontab 엔트리 설치 (위 "Task 8 자동화" 참고) — 엔드포인트(`weekly_refresh.py`) 동작 확인 후 컨트롤러가 설치

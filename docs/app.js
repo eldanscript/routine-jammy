@@ -67,17 +67,17 @@
 
   async function flushQueue() {
     if (!CONFIG.appsScriptUrl) return;
-    const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-    if (queue.length === 0) return;
-    const remaining = [];
-    for (const payload of queue) {
+    while (true) {
+      const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+      if (queue.length === 0) return;
+      const [next, ...rest] = queue;
       try {
-        await postCheckin(payload);
+        await postCheckin(next);
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(rest));
       } catch (error) {
-        remaining.push(payload);
+        return;
       }
     }
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
   }
 
   function handleCheckboxChange(day, item) {
@@ -124,7 +124,15 @@
     const cards = weekData.days.map((day) => `
       <li class="week-card"><strong>${day.day} ${day.date.slice(5)}</strong><span>${day.exercise.label} · ${day.exercise.detail}</span></li>
     `).join('');
-    return `<h2>이번 주 한눈에</h2><ul class="week-list">${cards}</ul>`;
+    return `
+      <h2>이번 주 한눈에</h2>
+      <ul class="week-list">${cards}</ul>
+      <div class="week-links">
+        <a href="#/exercise">운동 상세 보기</a>
+        <a href="#/meals">식단 상세 보기</a>
+        <a href="#/settings">설정</a>
+      </div>
+    `;
   }
 
   function renderExercise() {
@@ -215,7 +223,9 @@
     const renderFn = ROUTES[route] || renderHome;
     document.getElementById('view').innerHTML = renderFn();
     document.querySelectorAll('.bottom-nav a').forEach((link) => {
-      link.classList.toggle('active', link.dataset.route === route);
+      const isActive = link.dataset.route === route;
+      link.classList.toggle('active', isActive);
+      link.setAttribute('aria-current', isActive ? 'page' : 'false');
     });
     attachInteractions(route);
   }

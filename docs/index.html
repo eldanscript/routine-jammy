@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>나를 돌보는 일주일 루틴</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="주간 루틴">
+  <link rel="apple-touch-icon" href="assets/pwa/app-icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/pwa/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/tokens.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <img src="assets/icons/logo-mark.svg" class="logo" alt="">
+    <h1>나를 돌보는 일주일 루틴</h1>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <nav class="bottom-nav" aria-label="주요 메뉴">
+    <a href="#/" data-route="/"><img class="routine-icon" src="assets/icons/nav-home.svg" alt="">홈</a>
+    <a href="#/week" data-route="/week"><img class="routine-icon" src="assets/icons/nav-calendar.svg" alt="">주간</a>
+    <a href="#/check-in" data-route="/check-in" class="primary"><img class="routine-icon" src="assets/icons/nav-checkin.svg" alt="">체크</a>
+    <a href="#/history" data-route="/history"><img class="routine-icon" src="assets/icons/nav-history.svg" alt="">리포트</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="js/routine-logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

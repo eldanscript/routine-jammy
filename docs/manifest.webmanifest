@@ -1,0 +1,27 @@
+{
+  "name": "나를 돌보는 일주일 루틴",
+  "short_name": "주간 루틴",
+  "description": "운동, 식단, 바이올린과 회복을 기록하는 주간 루틴 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9F1",
+  "theme_color": "#DDF3E8",
+  "icons": [
+    {
+      "src": "pwa/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "pwa/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "pwa/app-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

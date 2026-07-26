@@ -1,0 +1,33 @@
+:root {
+  --routine-bg: #fff9f1;
+  --routine-surface: #ffffff;
+  --routine-text: #3e4650;
+  --routine-text-muted: #747b84;
+  --routine-border: #d7d2ca;
+  --routine-mint: #ddf3e8;
+  --routine-mint-strong: #3f8c76;
+  --routine-peach: #ffe0d3;
+  --routine-coral: #e8806c;
+  --routine-lavender: #eae1f8;
+  --routine-purple: #765fa7;
+  --routine-butter: #fff0b8;
+  --routine-blue: #dceef8;
+  --routine-blue-strong: #4a7f99;
+
+  --routine-font: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  --routine-radius-control: 10px;
+  --routine-radius-card: 18px;
+  --routine-radius-hero: 28px;
+  --routine-shadow-card: 0 10px 30px rgb(62 70 80 / 8%);
+  --routine-shadow-floating: 0 16px 44px rgb(62 70 80 / 14%);
+}
+
+.routine-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--routine-text-muted);
+}
+
+.routine-icon[aria-current="page"] {
+  color: var(--routine-mint-strong);
+}

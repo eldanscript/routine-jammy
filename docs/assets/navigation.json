@@ -1,0 +1,98 @@
+{
+  "desktopSidebar": [
+    {
+      "id": "dashboard",
+      "label": "홈",
+      "route": "/",
+      "icon": "icons/nav-home.svg"
+    },
+    {
+      "id": "week",
+      "label": "주간 계획",
+      "route": "/week",
+      "icon": "icons/nav-calendar.svg"
+    },
+    {
+      "id": "exercise",
+      "label": "운동",
+      "route": "/exercise",
+      "icon": "icons/nav-exercise.svg"
+    },
+    {
+      "id": "meals",
+      "label": "식단",
+      "route": "/meals",
+      "icon": "icons/nav-meal.svg"
+    },
+    {
+      "id": "checkIn",
+      "label": "오늘 체크",
+      "route": "/check-in",
+      "icon": "icons/nav-checkin.svg",
+      "primaryAction": true
+    },
+    {
+      "id": "history",
+      "label": "리포트",
+      "route": "/history",
+      "icon": "icons/nav-history.svg"
+    },
+    {
+      "id": "settings",
+      "label": "설정",
+      "route": "/settings",
+      "icon": "icons/nav-settings.svg"
+    }
+  ],
+  "mobileBottomNavigation": [
+    {
+      "id": "dashboard",
+      "label": "홈",
+      "route": "/",
+      "icon": "icons/nav-home.svg"
+    },
+    {
+      "id": "week",
+      "label": "주간",
+      "route": "/week",
+      "icon": "icons/nav-calendar.svg"
+    },
+    {
+      "id": "checkIn",
+      "label": "체크",
+      "route": "/check-in",
+      "icon": "icons/nav-checkin.svg",
+      "primaryAction": true
+    },
+    {
+      "id": "history",
+      "label": "리포트",
+      "route": "/history",
+      "icon": "icons/nav-history.svg"
+    }
+  ],
+  "dashboardCards": [
+    {
+      "id": "exercise",
+      "label": "오늘의 운동",
+      "stickerPattern": "images/stickers/{activity}.webp"
+    },
+    {
+      "id": "meal",
+      "label": "오늘의 식단",
+      "sticker": "images/stickers/meal.webp"
+    },
+    {
+      "id": "violin",
+      "label": "바이올린",
+      "sticker": "images/stickers/violin.webp",
+      "icon": "icons/category-violin.svg"
+    },
+    {
+      "id": "recovery",
+      "label": "수면과 회복",
+      "sticker": "images/stickers/sleep.webp",
+      "icon": "icons/category-sleep.svg"
+    }
+  ]
+}

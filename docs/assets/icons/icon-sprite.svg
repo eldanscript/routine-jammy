@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3.5 10.5 8.5-7 8.5 7M5.5 9.5v10h13v-10M9.5 19.5v-6h5v6"/></symbol>
+  <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 10h18M7.5 14h.01M12 14h.01M16.5 14h.01M7.5 17.5h.01M12 17.5h.01"/></symbol>
+  <symbol id="icon-exercise" viewBox="0 0 24 24"><path d="M7 9v6M4.5 8v8M2.5 10v4M17 9v6M19.5 8v8M21.5 10v4M7 12h10"/></symbol>
+  <symbol id="icon-meal" viewBox="0 0 24 24"><path d="M4 11h16c0 5.4-3.4 9-8 9s-8-3.6-8-9ZM6 20h12M12 11V5"/><path d="M12 6c-2.5 0-4-1.4-4-3.5 2.5 0 4 1.4 4 3.5ZM12 8c2.7 0 4.5-1.5 4.5-4-2.7 0-4.5 1.5-4.5 4Z"/></symbol>
+  <symbol id="icon-checkin" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m7.5 12 3 3 6-7"/></symbol>
+  <symbol id="icon-history" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16m-13-4 4-4 3 2 5-6M16.5 7H19v2.5"/></symbol>
+  <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
+</svg>

@@ -54,6 +54,10 @@ body {
 .check-item { display: flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; }
 .check-item input { width: 22px; height: 22px; }
 
+.reflection-form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.reflection-form label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.reflection-form textarea { min-height: 44px; padding: 8px; border: 1px solid var(--routine-border); border-radius: var(--routine-radius-control); font-family: var(--routine-font); font-size: 14px; resize: vertical; }
+
 .primary-button {
   min-height: 44px;
   border-radius: var(--routine-radius-control);

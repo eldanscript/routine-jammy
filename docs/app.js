@@ -180,14 +180,40 @@
           ${task}
         </label>
       `).join('');
-      return `<div class="today-card"><strong>${day.day} ${day.date.slice(5)}</strong><div class="check-grid">${checkboxes}</div></div>`;
+      const reflectionForm = day.reflectionPrompts ? `
+        <div class="reflection-form">
+          <label>${day.reflectionPrompts[0]}<textarea data-reflection="good"></textarea></label>
+          <label>${day.reflectionPrompts[1]}<textarea data-reflection="blocker"></textarea></label>
+          <label>${day.reflectionPrompts[2]}<textarea data-reflection="change"></textarea></label>
+          <button class="primary-button" id="submit-reflection" data-day="${day.day}">회고 저장</button>
+        </div>
+      ` : '';
+      return `<div class="today-card"><strong>${day.day} ${day.date.slice(5)}</strong><div class="check-grid">${checkboxes}</div>${reflectionForm}</div>`;
     }).join('');
     return `<h2>매일 체크</h2>${rows}`;
   }
 
+  function buildResponsesFromLocalState() {
+    const state = getCheckedState();
+    const responses = [];
+    weekData.days.forEach((day) => {
+      day.tasks.forEach((task) => {
+        responses.push({ item: task, checked: !!(state[day.day] && state[day.day][task]) });
+      });
+    });
+    return responses;
+  }
+
   function renderHistory() {
+    const responses = buildResponsesFromLocalState();
+    const categories = weekData.days[0].tasks;
+    const rateRows = categories.map((category) => {
+      const ratio = RoutineLogic.completionRatio(responses, category);
+      return `<li>${category}: ${Math.round(ratio * 100)}%</li>`;
+    }).join('');
     return `
       <h2>리포트</h2>
+      <div class="today-card blue"><strong>이번 주 완료율 (이 기기 기준)</strong><ul>${rateRows}</ul></div>
       <p class="muted">체크한 결과는 자동으로 동기화됩니다. 이번 주 결과를 문서로 남기고 싶으면 아래 버튼을 눌러주세요.</p>
       <button id="export-pdf" class="primary-button">이번 주 PDF로 내보내기</button>
     `;
@@ -211,6 +237,20 @@
       document.querySelectorAll('#view input[type="checkbox"]').forEach((checkbox) => {
         checkbox.addEventListener('change', handleCheckboxChange(checkbox.dataset.day, checkbox.dataset.item));
       });
+      const reflectionButton = document.getElementById('submit-reflection');
+      if (reflectionButton) {
+        reflectionButton.addEventListener('click', () => {
+          const day = reflectionButton.dataset.day;
+          const good = document.querySelector('[data-reflection="good"]').value;
+          const blocker = document.querySelector('[data-reflection="blocker"]').value;
+          const change = document.querySelector('[data-reflection="change"]').value;
+          sendCheckin({
+            weekId: weekData.weekId, day, item: '회고', checked: true,
+            reflection: { good, blocker, change },
+            timestamp: new Date().toISOString(),
+          });
+        });
+      }
     }
     if (route === '/history') {
       const exportButton = document.getElementById('export-pdf');

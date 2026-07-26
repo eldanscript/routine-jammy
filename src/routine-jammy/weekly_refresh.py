@@ -53,6 +53,14 @@ def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) ->
 
 
 def commit_and_push(repo_root: Path) -> None:
+    current_branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=repo_root, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    if current_branch != "main":
+        raise RuntimeError(
+            f"refusing to commit_and_push: expected branch 'main', found '{current_branch}'"
+        )
     subprocess.run(["git", "add", "history", "docs/data/current-week.json"], cwd=repo_root, check=True)
     subprocess.run(
         ["git", "commit", "-m", "chore: weekly routine refresh\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>"],

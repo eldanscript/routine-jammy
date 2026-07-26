@@ -1,6 +1,9 @@
 import json
+import subprocess
 
-from weekly_refresh import run
+import pytest
+
+from weekly_refresh import commit_and_push, run
 
 
 def _seed_current_week(path):
@@ -39,3 +42,21 @@ def test_run_writes_history_and_advances_week(tmp_path):
     next_week = json.loads(current_week_path.read_text(encoding="utf-8"))
     assert next_week["weekId"] == "2026-W32"
     assert next_week["days"][0]["date"] == "2026-08-03"
+
+
+def _init_repo_on_branch(repo_root, branch_name):
+    subprocess.run(["git", "init", "-b", branch_name], cwd=repo_root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo_root, check=True)
+    (repo_root / "history").mkdir()
+    (repo_root / "history" / "data.json").write_text("{}", encoding="utf-8")
+    subprocess.run(["git", "add", "history"], cwd=repo_root, check=True)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=repo_root, check=True)
+
+
+def test_commit_and_push_refuses_when_not_on_main(tmp_path):
+    _init_repo_on_branch(tmp_path, "feature/not-main")
+    (tmp_path / "history" / "data.json").write_text('{"changed": true}', encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="main"):
+        commit_and_push(tmp_path)

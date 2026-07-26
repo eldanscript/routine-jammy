@@ -12,6 +12,7 @@ def load_history(history_dir: Path) -> dict:
 
 
 def save_week(history_dir: Path, week_id: str, entry: dict) -> None:
+    history_dir.mkdir(parents=True, exist_ok=True)
     history = load_history(history_dir)
     history["weeks"][week_id] = entry
     data_path = history_dir / "data.json"
@@ -40,6 +41,7 @@ def render_week_markdown(week_id: str, entry: dict) -> str:
 
 
 def save_week_markdown(history_dir: Path, week_id: str, entry: dict) -> Path:
+    history_dir.mkdir(parents=True, exist_ok=True)
     md_path = history_dir / f"{week_id}.md"
     md_path.write_text(render_week_markdown(week_id, entry), encoding="utf-8")
     return md_path

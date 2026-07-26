@@ -15,6 +15,25 @@ def test_save_week_persists_and_round_trips(tmp_path):
     assert reloaded["weeks"]["2026-W31"] == entry
 
 
+def test_save_week_creates_history_dir_when_missing(tmp_path):
+    history_dir = tmp_path / "does-not-exist-yet"
+    entry = {"completionByCategory": {"운동": 0.86}, "adjustmentsApplied": [], "reflection": {}}
+
+    save_week(history_dir, "2026-W31", entry)
+
+    reloaded = load_history(history_dir)
+    assert reloaded["weeks"]["2026-W31"] == entry
+
+
+def test_save_week_markdown_creates_history_dir_when_missing(tmp_path):
+    history_dir = tmp_path / "does-not-exist-yet"
+    entry = {"completionByCategory": {"운동": 0.86}, "adjustmentsApplied": [], "reflection": {}}
+
+    path = save_week_markdown(history_dir, "2026-W31", entry)
+
+    assert path.read_text(encoding="utf-8").startswith("# 2026-W31")
+
+
 def test_save_week_markdown_includes_completion_and_reflection(tmp_path):
     entry = {
         "completionByCategory": {"운동": 0.86},

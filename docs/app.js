@@ -70,13 +70,17 @@
     while (true) {
       const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
       if (queue.length === 0) return;
-      const [next, ...rest] = queue;
+      const next = queue[0];
       try {
         await postCheckin(next);
-        localStorage.setItem(QUEUE_KEY, JSON.stringify(rest));
       } catch (error) {
         return;
       }
+      const updatedQueue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+      const sentJson = JSON.stringify(next);
+      const index = updatedQueue.findIndex((item) => JSON.stringify(item) === sentJson);
+      if (index !== -1) updatedQueue.splice(index, 1);
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(updatedQueue));
     }
   }
 

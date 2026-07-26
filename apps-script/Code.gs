@@ -36,53 +36,71 @@ function jsonResponse_(payload) {
 }
 
 function doPost(e) {
-  const body = JSON.parse(e.postData.contents);
+  let body;
+  try {
+    body = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return jsonResponse_({ ok: false, error: 'invalid request' });
+  }
+
   if (!checkSecret_(body.secret)) {
     return jsonResponse_({ ok: false, error: 'invalid secret' });
   }
 
-  const sheet = getOrCreateSheet_(RESPONSES_SHEET_NAME, [
-    'weekId', 'day', 'item', 'checked', 'minutes', 'sleepHours', 'energy', 'timestamp',
-  ]);
-  const data = sheet.getDataRange().getValues();
-  let rowIndex = -1;
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === body.weekId && data[i][1] === body.day && data[i][2] === body.item) {
-      rowIndex = i + 1;
-      break;
-    }
-  }
-  const row = [
-    body.weekId, body.day, body.item, body.checked,
-    body.minutes || '', body.sleepHours || '', body.energy || '', body.timestamp,
-  ];
-  if (rowIndex > 0) {
-    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
-  } else {
-    sheet.appendRow(row);
-  }
-
-  if (body.reflection) {
-    const reflectionSheet = getOrCreateSheet_(REFLECTIONS_SHEET_NAME, ['weekId', 'good', 'blocker', 'change']);
-    const reflectionData = reflectionSheet.getDataRange().getValues();
-    let reflectionRow = -1;
-    for (let i = 1; i < reflectionData.length; i++) {
-      if (reflectionData[i][0] === body.weekId) {
-        reflectionRow = i + 1;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = getOrCreateSheet_(RESPONSES_SHEET_NAME, [
+      'weekId', 'day', 'item', 'checked', 'minutes', 'sleepHours', 'energy', 'timestamp',
+    ]);
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === body.weekId && data[i][1] === body.day && data[i][2] === body.item) {
+        rowIndex = i + 1;
         break;
       }
     }
-    const reflectionValues = [
-      body.weekId, body.reflection.good || '', body.reflection.blocker || '', body.reflection.change || '',
+    const row = [
+      body.weekId, body.day, body.item, body.checked,
+      body.minutes === undefined || body.minutes === null ? '' : body.minutes,
+      body.sleepHours === undefined || body.sleepHours === null ? '' : body.sleepHours,
+      body.energy === undefined || body.energy === null ? '' : body.energy,
+      body.timestamp,
     ];
-    if (reflectionRow > 0) {
-      reflectionSheet.getRange(reflectionRow, 1, 1, reflectionValues.length).setValues([reflectionValues]);
+    if (rowIndex > 0) {
+      sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
     } else {
-      reflectionSheet.appendRow(reflectionValues);
+      sheet.appendRow(row);
     }
-  }
 
-  return jsonResponse_({ ok: true });
+    if (body.reflection) {
+      const reflectionSheet = getOrCreateSheet_(REFLECTIONS_SHEET_NAME, ['weekId', 'good', 'blocker', 'change']);
+      const reflectionData = reflectionSheet.getDataRange().getValues();
+      let reflectionRow = -1;
+      for (let i = 1; i < reflectionData.length; i++) {
+        if (reflectionData[i][0] === body.weekId) {
+          reflectionRow = i + 1;
+          break;
+        }
+      }
+      const reflectionValues = [
+        body.weekId,
+        body.reflection.good === undefined || body.reflection.good === null ? '' : body.reflection.good,
+        body.reflection.blocker === undefined || body.reflection.blocker === null ? '' : body.reflection.blocker,
+        body.reflection.change === undefined || body.reflection.change === null ? '' : body.reflection.change,
+      ];
+      if (reflectionRow > 0) {
+        reflectionSheet.getRange(reflectionRow, 1, 1, reflectionValues.length).setValues([reflectionValues]);
+      } else {
+        reflectionSheet.appendRow(reflectionValues);
+      }
+    }
+
+    return jsonResponse_({ ok: true });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function doGet(e) {

@@ -13,18 +13,18 @@ Pages URL에 배포한다. 대상 사용자는 Claude를 직접 쓰지 않는 �
 | 프런트엔드 | 정적 HTML + Vanilla JS (빌드 도구 없음), `docs/`가 GitHub Pages 소스 |
 | 배포 | GitHub Pages (private repo, `eldanscript/routine-jammy`) |
 | 데이터 동기화 | Google Apps Script 웹앱 (POST 체크인 기록 / GET 주간 요약) + Google Sheets |
-| 자동화 | dev-agent-team CronCreate (일요일 18:00 KST) + PushNotification |
+| 자동화 | OS crontab (일요일 18:00 KST, `weekly_refresh.py` 직접 실행) + Telegram 봇 알림. dev-agent-team의 CronCreate/PushNotification은 세션 종속적이라 부적합해 채택하지 않음 |
 | 자동화 로직 | Python (`src/routine-jammy/`) |
 | 디자인 자산 | `docs/assets/` (아이콘·스티커·히어로 이미지·tokens.css, 사용자 제공 kit) |
 
 ## Agent 구성
 | Agent | 기능 | 상태 |
 |---|---|---|
-| architect | 초기 상세 설계(라우팅, 데이터 모델, Apps Script 계약) | 대기 |
-| frontend-developer | `docs/` 정적 PWA 구현 | 대기 |
-| backend-developer | Apps Script(Code.gs) 및 주간 리프레시 파이썬 스크립트 | 대기 |
-| devops | GitHub Pages 활성화, CronCreate 등록, 배포 파이프라인 | 대기 |
-| reviewer | 머지 전 리뷰 | 대기 |
+| architect | 초기 상세 설계(라우팅, 데이터 모델, Apps Script 계약) | 완료 |
+| frontend-developer | `docs/` 정적 PWA 구현 | 완료 |
+| backend-developer | Apps Script(Code.gs), 주간 리프레시 파이썬 스크립트, Telegram 알림 | 완료 |
+| devops | GitHub Pages 활성화, 운영 런북 작성 | 완료 |
+| reviewer | 태스크별 + 전체 브랜치 리뷰 | 완료 |
 
 ## Project Structure
 ```

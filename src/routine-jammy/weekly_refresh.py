@@ -1,15 +1,17 @@
 """Weekly automation entrypoint: pulls last week's data, updates history, and
-writes next week's current-week.json. Invoked by the CronCreate job every
+writes next week's current-week.json. Invoked by a plain OS crontab entry every
 Sunday 18:00 Asia/Seoul (Task 8), and by the weekly-routine-refresh skill (Task 5)."""
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 from history_store import load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
 from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
 from sheet_client import fetch_week
+from telegram_notifier import send_telegram
 
 
 def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) -> dict:
@@ -69,13 +71,47 @@ def commit_and_push(repo_root: Path) -> None:
     subprocess.run(["git", "push", "origin", "main"], cwd=repo_root, check=True)
 
 
+def build_success_message(result: dict) -> str:
+    lines = [f"루틴 주간 리프레시 완료 — {result['weekId']}"]
+    lines.append("완료율: " + ", ".join(
+        f"{category} {round(rate * 100)}%" for category, rate in result["rates"].items()
+    ))
+    if result["adjustments"]:
+        lines.append("조정 제안:")
+        lines.extend(f"- {adjustment}" for adjustment in result["adjustments"])
+    lines.append(f"다음 주({result['nextWeekId']}) 루틴이 배포되었습니다.")
+    return "\n".join(lines)
+
+
+def build_failure_message(error: Exception) -> str:
+    return f"루틴 주간 리프레시 실패: {error}"
+
+
+def notify(text: str) -> None:
+    try:
+        send_telegram(text)
+    except Exception as error:
+        print(f"Telegram notification failed: {error}", file=sys.stderr)
+
+
+def execute(current_week_path: Path, history_dir: Path, repo_root: Path) -> dict:
+    try:
+        result = run(current_week_path, history_dir)
+        commit_and_push(repo_root)
+    except Exception as error:
+        notify(build_failure_message(error))
+        raise
+    notify(build_success_message(result))
+    return result
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
-    result = run(
+    result = execute(
         current_week_path=repo_root / "docs" / "data" / "current-week.json",
         history_dir=repo_root / "history",
+        repo_root=repo_root,
     )
-    commit_and_push(repo_root)
     print(json.dumps(result, ensure_ascii=False))
 
 

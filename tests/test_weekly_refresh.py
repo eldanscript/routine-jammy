@@ -3,7 +3,9 @@ import subprocess
 
 import pytest
 
-from weekly_refresh import commit_and_push, run
+import weekly_refresh
+from weekly_refresh import commit_and_push, execute, run
+from telegram_notifier import NotifierError
 
 
 def _seed_current_week(path):
@@ -60,3 +62,89 @@ def test_commit_and_push_refuses_when_not_on_main(tmp_path):
 
     with pytest.raises(RuntimeError, match="main"):
         commit_and_push(tmp_path)
+
+
+_FAKE_RESULT = {
+    "weekId": "2026-W31",
+    "rates": {"운동": 0.86, "물": 0.57},
+    "adjustments": ["물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안"],
+    "nextWeekId": "2026-W32",
+}
+
+
+def test_execute_sends_success_telegram_message_on_success(monkeypatch, tmp_path):
+    monkeypatch.setattr(weekly_refresh, "run", lambda *a, **k: _FAKE_RESULT)
+    monkeypatch.setattr(weekly_refresh, "commit_and_push", lambda repo_root: None)
+    sent = {}
+    monkeypatch.setattr(weekly_refresh, "send_telegram", lambda text: sent.setdefault("text", text))
+
+    result = execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+
+    assert result == _FAKE_RESULT
+    assert "2026-W31" in sent["text"]
+    assert "86%" in sent["text"]
+    assert "57%" in sent["text"]
+    assert "물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안" in sent["text"]
+    assert "2026-W32" in sent["text"]
+
+
+def test_execute_sends_failure_telegram_message_and_reraises_on_run_error(monkeypatch, tmp_path):
+    def boom(*a, **k):
+        raise RuntimeError("apps script down")
+
+    monkeypatch.setattr(weekly_refresh, "run", boom)
+    sent = {}
+    monkeypatch.setattr(weekly_refresh, "send_telegram", lambda text: sent.setdefault("text", text))
+
+    with pytest.raises(RuntimeError, match="apps script down"):
+        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+
+    assert "apps script down" in sent["text"]
+
+
+def test_execute_sends_failure_telegram_message_on_commit_and_push_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(weekly_refresh, "run", lambda *a, **k: _FAKE_RESULT)
+
+    def boom(repo_root):
+        raise RuntimeError("git push rejected")
+
+    monkeypatch.setattr(weekly_refresh, "commit_and_push", boom)
+    sent = {}
+    monkeypatch.setattr(weekly_refresh, "send_telegram", lambda text: sent.setdefault("text", text))
+
+    with pytest.raises(RuntimeError, match="git push rejected"):
+        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+
+    assert "git push rejected" in sent["text"]
+
+
+def test_execute_notifier_failure_does_not_mask_original_error(monkeypatch, tmp_path, capsys):
+    def boom(*a, **k):
+        raise RuntimeError("apps script down")
+
+    monkeypatch.setattr(weekly_refresh, "run", boom)
+
+    def failing_notify(text):
+        raise NotifierError("bad token")
+
+    monkeypatch.setattr(weekly_refresh, "send_telegram", failing_notify)
+
+    with pytest.raises(RuntimeError, match="apps script down"):
+        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+
+    assert "bad token" in capsys.readouterr().err
+
+
+def test_execute_success_survives_notifier_failure(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(weekly_refresh, "run", lambda *a, **k: _FAKE_RESULT)
+    monkeypatch.setattr(weekly_refresh, "commit_and_push", lambda repo_root: None)
+
+    def failing_notify(text):
+        raise NotifierError("bad token")
+
+    monkeypatch.setattr(weekly_refresh, "send_telegram", failing_notify)
+
+    result = execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+
+    assert result == _FAKE_RESULT
+    assert "bad token" in capsys.readouterr().err

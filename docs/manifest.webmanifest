@@ -2,7 +2,7 @@
   "name": "나를 돌보는 일주일 루틴",
   "short_name": "주간 루틴",
   "description": "운동, 식단, 바이올린과 회복을 기록하는 주간 루틴 앱",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#FFF9F1",
   "theme_color": "#DDF3E8",

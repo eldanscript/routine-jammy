@@ -12,14 +12,17 @@
 
   let staticData = null;
   let weekData = null;
+  let exerciseStats = null;
 
   async function loadData() {
-    const [staticResponse, weekResponse] = await Promise.all([
+    const [staticResponse, weekResponse, exerciseStatsResponse] = await Promise.all([
       fetch('data/routine-static.json'),
       fetch('data/current-week.json'),
+      fetch('data/exercise-stats.json'),
     ]);
     staticData = await staticResponse.json();
     weekData = await weekResponse.json();
+    exerciseStats = exerciseStatsResponse.ok ? await exerciseStatsResponse.json() : null;
   }
 
   function todayIndex() {
@@ -251,9 +254,13 @@
       const dinner = dayMeals['저녁'] ? escapeHtml(dayMeals['저녁']) : '<span class="muted">(입력 없음)</span>';
       return `<tr><td>${day.day}</td><td>${breakfast}</td><td>${dinner}</td></tr>`;
     }).join('');
+    const exerciseStatsCard = exerciseStats
+      ? `<div class="today-card mint"><strong>운동 현황</strong><p>이번 주 ${exerciseStats.exerciseDaysThisWeek}/7일 · 연속 ${exerciseStats.exerciseStreak}일째</p></div>`
+      : '';
     return `
       <h2>리포트</h2>
       <div class="today-card blue"><strong>이번 주 완료율 (이 기기 기준)</strong><ul>${rateRows}</ul></div>
+      ${exerciseStatsCard}
       <div class="today-card peach">
         <strong>이번 주 식단 기록</strong>
         <table class="meal-table"><thead><tr><th>요일</th><th>아점</th><th>저녁</th></tr></thead><tbody>${mealRows}</tbody></table>

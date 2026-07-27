@@ -5,6 +5,7 @@ Sunday 18:00 Asia/Seoul (Task 8), and by the weekly-routine-refresh skill (Task 
 import json
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from exercise_stats import build_day_level, days_with_any_exercise, exercised_sequence, longest_current_streak
@@ -56,6 +57,16 @@ def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) ->
         json.dumps(next_week, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
+    exercise_stats_path = current_week_path.parent / "exercise-stats.json"
+    exercise_stats_path.write_text(
+        json.dumps({
+            "exerciseDaysThisWeek": exercise_days,
+            "exerciseStreak": streak,
+            "weekId": week_id,
+            "updatedAt": datetime.now().astimezone().isoformat(),
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
     return {
         "weekId": week_id,
         "rates": rates,
@@ -75,7 +86,10 @@ def commit_and_push(repo_root: Path) -> None:
         raise RuntimeError(
             f"refusing to commit_and_push: expected branch 'main', found '{current_branch}'"
         )
-    subprocess.run(["git", "add", "history", "docs/data/current-week.json"], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "add", "history", "docs/data/current-week.json", "docs/data/exercise-stats.json"],
+        cwd=repo_root, check=True,
+    )
     subprocess.run(
         ["git", "commit", "-m", "chore: weekly routine refresh\n\nCo-Authored-By: Claude Fable 5 <noreply@anthropic.com>"],
         cwd=repo_root, check=True,

@@ -65,6 +65,12 @@ def test_run_writes_history_and_advances_week(tmp_path):
     assert next_week["weekId"] == "2026-W32"
     assert next_week["days"][0]["date"] == "2026-08-03"
 
+    exercise_stats = json.loads((tmp_path / "exercise-stats.json").read_text(encoding="utf-8"))
+    assert exercise_stats["exerciseDaysThisWeek"] == 2
+    assert exercise_stats["exerciseStreak"] == 2
+    assert exercise_stats["weekId"] == "2026-W31"
+    assert exercise_stats["updatedAt"]
+
 
 def _init_repo_on_branch(repo_root, branch_name):
     subprocess.run(["git", "init", "-b", branch_name], cwd=repo_root, check=True)

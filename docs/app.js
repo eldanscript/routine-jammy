@@ -255,7 +255,7 @@
       return `<tr><td>${day.day}</td><td>${breakfast}</td><td>${dinner}</td></tr>`;
     }).join('');
     const exerciseStatsCard = exerciseStats
-      ? `<div class="today-card mint"><strong>운동 현황</strong><p>이번 주 ${exerciseStats.exerciseDaysThisWeek}/7일 · 연속 ${exerciseStats.exerciseStreak}일째</p></div>`
+      ? `<div class="today-card mint"><strong>지난 주 운동 현황</strong><p>${exerciseStats.weekId} · ${exerciseStats.exerciseDaysThisWeek}/7일 · 연속 ${exerciseStats.exerciseStreak}일째</p></div>`
       : '';
     return `
       <h2>리포트</h2>

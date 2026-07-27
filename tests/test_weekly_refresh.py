@@ -29,7 +29,13 @@ def test_run_writes_history_and_advances_week(tmp_path):
     def fake_fetch(week_id):
         assert week_id == "2026-W31"
         return {
-            "responses": [{"day": "월", "item": "슬로우 조깅", "checked": True}],
+            "responses": [
+                {"day": "월", "item": "스쿼트", "checked": False},
+                {"day": "월", "item": "아점", "checked": True, "note": "계란후라이"},
+                {"day": "화", "item": "슬로우 조깅", "checked": True},
+                {"day": "화", "item": "저녁", "checked": True, "note": "샐러드"},
+                {"day": "수", "item": "스쿼트", "checked": True},
+            ],
             "reflection": {"good": "조깅"},
         }
 
@@ -37,9 +43,23 @@ def test_run_writes_history_and_advances_week(tmp_path):
 
     assert result["weekId"] == "2026-W31"
     assert result["nextWeekId"] == "2026-W32"
+    assert result["exerciseDaysThisWeek"] == 2
+    assert result["exerciseStreak"] == 2
 
     history = json.loads((history_dir / "data.json").read_text(encoding="utf-8"))
     assert "2026-W31" in history["weeks"]
+    entry = history["weeks"]["2026-W31"]
+    assert entry["byDay"] == {
+        "월": {"스쿼트": False, "아점": True},
+        "화": {"슬로우 조깅": True, "저녁": True},
+        "수": {"스쿼트": True},
+    }
+    assert entry["meals"] == {
+        "월": {"아점": "계란후라이"},
+        "화": {"저녁": "샐러드"},
+    }
+    assert entry["exerciseDaysThisWeek"] == 2
+    assert entry["exerciseStreak"] == 2
 
     next_week = json.loads(current_week_path.read_text(encoding="utf-8"))
     assert next_week["weekId"] == "2026-W32"
@@ -69,6 +89,8 @@ _FAKE_RESULT = {
     "rates": {"슬로우 조깅": 0.86, "물": 0.57},
     "adjustments": ["물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안"],
     "nextWeekId": "2026-W32",
+    "exerciseDaysThisWeek": 5,
+    "exerciseStreak": 3,
 }
 
 
@@ -86,6 +108,8 @@ def test_execute_sends_success_telegram_message_on_success(monkeypatch, tmp_path
     assert "57%" in sent["text"]
     assert "물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안" in sent["text"]
     assert "2026-W32" in sent["text"]
+    assert "운동한 날: 5/7일" in sent["text"]
+    assert "연속 3일째" in sent["text"]
 
 
 def test_execute_sends_failure_telegram_message_and_reraises_on_run_error(monkeypatch, tmp_path):

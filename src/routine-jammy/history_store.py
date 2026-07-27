@@ -3,6 +3,25 @@
 import json
 from pathlib import Path
 
+from exercise_stats import DAY_ORDER
+
+_MEAL_ITEMS = ["아점", "저녁"]
+
+
+def extract_meal_log(responses):
+    """Extract {day: {"아점": note, "저녁": note}} from a responses list, for any
+    response where item is "아점" or "저녁" and checked is true. Skip entries with
+    empty/missing note."""
+    meals = {}
+    for response in responses:
+        if response["item"] not in _MEAL_ITEMS or not response["checked"]:
+            continue
+        note = response.get("note")
+        if not note:
+            continue
+        meals.setdefault(response["day"], {})[response["item"]] = note
+    return meals
+
 
 def load_history(history_dir: Path) -> dict:
     data_path = history_dir / "data.json"
@@ -30,6 +49,23 @@ def render_week_markdown(week_id: str, entry: dict) -> str:
         lines.append("## 이번에 적용한 보완")
         for adjustment in entry["adjustmentsApplied"]:
             lines.append(f"- {adjustment}")
+    exercise_days = entry.get("exerciseDaysThisWeek")
+    streak = entry.get("exerciseStreak")
+    if exercise_days is not None and streak is not None:
+        lines.append("")
+        lines.append("## 운동 요약")
+        lines.append(f"- 운동한 날: {exercise_days}/7일")
+        lines.append(f"- 연속 {streak}일째")
+    meals = entry.get("meals")
+    if meals:
+        lines.append("")
+        lines.append("## 식사 기록")
+        for day in DAY_ORDER:
+            if day not in meals:
+                continue
+            day_meals = meals[day]
+            parts = [f"{item}: {day_meals[item]}" for item in _MEAL_ITEMS if item in day_meals]
+            lines.append(f"- {day} - " + ", ".join(parts))
     reflection = entry.get("reflection")
     if reflection:
         lines.append("")

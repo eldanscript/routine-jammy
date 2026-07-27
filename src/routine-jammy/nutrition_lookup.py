@@ -88,42 +88,60 @@ def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
     "fat": float, "carb": float} per 100g of the best-scoring match (see
     _score_candidate), or None if no match (totalCount == 0). Reads
     ROUTINE_NUTRITION_API_ENDPOINT/ROUTINE_NUTRITION_API_KEY from env if
-    endpoint/api_key aren't passed explicitly. Raise NutritionLookupError on a
-    non-200 HTTP response or a non-"00" resultCode."""
+    endpoint/api_key aren't passed explicitly. Raise NutritionLookupError on any
+    failure mode of the external call — non-200 HTTP response, a non-"00"
+    resultCode, a network-level failure (timeout, connection error), invalid JSON,
+    or an unexpected response shape — so callers can rely on catching just this one
+    exception type rather than the underlying requests/json/KeyError variants."""
     endpoint = endpoint or os.environ["ROUTINE_NUTRITION_API_ENDPOINT"]
     api_key = api_key or os.environ["ROUTINE_NUTRITION_API_KEY"]
-    response = requests.get(
-        f"{endpoint}/getFoodNtrCpntDbInq02",
-        params={
-            "serviceKey": api_key,
-            "FOOD_NM_KR": food_name,
-            "numOfRows": 20,
-            "pageNo": 1,
-            "type": "json",
-        },
-        timeout=15,
-    )
+    try:
+        response = requests.get(
+            f"{endpoint}/getFoodNtrCpntDbInq02",
+            params={
+                "serviceKey": api_key,
+                "FOOD_NM_KR": food_name,
+                "numOfRows": 20,
+                "pageNo": 1,
+                "type": "json",
+            },
+            timeout=15,
+        )
+    except requests.exceptions.RequestException as error:
+        raise NutritionLookupError(
+            f"Nutrition API request failed: {type(error).__name__}"
+        ) from None
     if response.status_code != 200:
         raise NutritionLookupError(
             f"Nutrition API GET failed with status {response.status_code}: {response.text}"
         )
-    payload = response.json()
-    result_code = payload["header"]["resultCode"]
+    try:
+        payload = response.json()
+        result_code = payload["header"]["resultCode"]
+    except ValueError as error:
+        raise NutritionLookupError(f"Nutrition API returned invalid JSON: {error}") from None
+    except KeyError:
+        raise NutritionLookupError("Nutrition API response missing expected header") from None
     if result_code != "00":
         raise NutritionLookupError(
             f"Nutrition API returned resultCode {result_code}: {payload['header']['resultMsg']}"
         )
-    body = payload["body"]
-    if body["totalCount"] == 0:
-        return None
-    item = max(body["items"], key=lambda candidate: _score_candidate(candidate, food_name))
-    scale = 100.0 / _serving_size_grams(item.get("SERVING_SIZE"))
-    return {
-        "kcal": float(item["AMT_NUM1"]) * scale,
-        "protein": float(item["AMT_NUM3"]) * scale,
-        "fat": float(item["AMT_NUM4"]) * scale,
-        "carb": float(item["AMT_NUM6"]) * scale,
-    }
+    try:
+        body = payload["body"]
+        if body["totalCount"] == 0:
+            return None
+        item = max(body["items"], key=lambda candidate: _score_candidate(candidate, food_name))
+        scale = 100.0 / _serving_size_grams(item.get("SERVING_SIZE"))
+        return {
+            "kcal": float(item["AMT_NUM1"]) * scale,
+            "protein": float(item["AMT_NUM3"]) * scale,
+            "fat": float(item["AMT_NUM4"]) * scale,
+            "carb": float(item["AMT_NUM6"]) * scale,
+        }
+    except (KeyError, ValueError, TypeError) as error:
+        raise NutritionLookupError(
+            f"Nutrition API response had an unexpected shape: {type(error).__name__}: {error}"
+        ) from None
 
 
 def estimate_meal_nutrition(meal_text, lookup_fn=fetch_nutrition_per_100g):
@@ -139,6 +157,9 @@ def estimate_meal_nutrition(meal_text, lookup_fn=fetch_nutrition_per_100g):
     matched_items = []
     unmatched_items = []
     for segment in parse_meal_segments(meal_text):
+        if not segment["food_name"]:
+            unmatched_items.append(segment["raw"])
+            continue
         grams = segment["grams"] if segment["grams"] is not None else _DEFAULT_GRAMS
         try:
             nutrition = lookup_fn(segment["food_name"])

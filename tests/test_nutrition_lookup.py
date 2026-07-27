@@ -160,6 +160,19 @@ def test_fetch_nutrition_per_100g_returns_none_when_no_match(monkeypatch):
     assert fetch_nutrition_per_100g("존재하지않는음식") is None
 
 
+def test_fetch_nutrition_per_100g_raises_on_connection_error(monkeypatch):
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_ENDPOINT", "https://fake.data.go.kr/api")
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_KEY", "test-key")
+
+    def raise_connection_error(*a, **k):
+        raise nutrition_lookup.requests.exceptions.ConnectionError("boom")
+
+    monkeypatch.setattr(nutrition_lookup.requests, "get", raise_connection_error)
+
+    with pytest.raises(NutritionLookupError):
+        fetch_nutrition_per_100g("쌀밥")
+
+
 def test_fetch_nutrition_per_100g_raises_on_non_200(monkeypatch):
     monkeypatch.setenv("ROUTINE_NUTRITION_API_ENDPOINT", "https://fake.data.go.kr/api")
     monkeypatch.setenv("ROUTINE_NUTRITION_API_KEY", "test-key")
@@ -245,6 +258,33 @@ def test_weekly_macro_recommendations_caps_at_two():
         "탄수화물 비중이 높은 편이에요 — 정제 탄수화물 섭취를 조금 줄여보세요",
         "지방 비중이 낮은 편이에요 — 견과류나 오일 등 좋은 지방을 조금 늘려보세요",
     ]
+
+
+def test_estimate_meal_nutrition_treats_network_failure_as_unmatched(monkeypatch):
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_ENDPOINT", "https://fake.data.go.kr/api")
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_KEY", "test-key")
+
+    def raise_connection_error(*a, **k):
+        raise nutrition_lookup.requests.exceptions.ConnectionError("boom")
+
+    monkeypatch.setattr(nutrition_lookup.requests, "get", raise_connection_error)
+
+    result = estimate_meal_nutrition("닭가슴살 100g")
+
+    assert result["kcal"] == 0.0
+    assert result["unmatchedItems"] == ["닭가슴살"]
+    assert result["matchedItems"] == []
+
+
+def test_estimate_meal_nutrition_skips_segments_with_empty_food_name():
+    def fake_lookup(food_name):
+        raise AssertionError("should not be called for an empty food name")
+
+    result = estimate_meal_nutrition("100g", lookup_fn=fake_lookup)
+
+    assert result["kcal"] == 0.0
+    assert result["unmatchedItems"] == ["100g"]
+    assert result["matchedItems"] == []
 
 
 def test_estimate_meal_nutrition_collects_unmatched_without_crashing():

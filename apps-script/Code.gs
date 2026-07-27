@@ -51,7 +51,7 @@ function doPost(e) {
   lock.waitLock(10000);
   try {
     const sheet = getOrCreateSheet_(RESPONSES_SHEET_NAME, [
-      'weekId', 'day', 'item', 'checked', 'minutes', 'sleepHours', 'energy', 'timestamp',
+      'weekId', 'day', 'item', 'checked', 'minutes', 'sleepHours', 'energy', 'note', 'timestamp',
     ]);
     const data = sheet.getDataRange().getValues();
     let rowIndex = -1;
@@ -66,6 +66,7 @@ function doPost(e) {
       body.minutes === undefined || body.minutes === null ? '' : body.minutes,
       body.sleepHours === undefined || body.sleepHours === null ? '' : body.sleepHours,
       body.energy === undefined || body.energy === null ? '' : body.energy,
+      body.note === undefined || body.note === null ? '' : body.note,
       body.timestamp,
     ];
     if (rowIndex > 0) {
@@ -110,7 +111,7 @@ function doGet(e) {
   const weekId = e.parameter.weekId;
 
   const sheet = getOrCreateSheet_(RESPONSES_SHEET_NAME, [
-    'weekId', 'day', 'item', 'checked', 'minutes', 'sleepHours', 'energy', 'timestamp',
+    'weekId', 'day', 'item', 'checked', 'minutes', 'sleepHours', 'energy', 'note', 'timestamp',
   ]);
   const data = sheet.getDataRange().getValues();
   const responses = [];
@@ -123,7 +124,8 @@ function doGet(e) {
         minutes: data[i][4],
         sleepHours: data[i][5],
         energy: data[i][6],
-        timestamp: data[i][7],
+        note: data[i][7],
+        timestamp: data[i][8],
       });
     }
   }

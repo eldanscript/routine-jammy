@@ -39,6 +39,18 @@
     localStorage.setItem(`routine-jammy:checked:${weekData.weekId}`, JSON.stringify(state));
   }
 
+  function getMealState() {
+    const raw = localStorage.getItem(`routine-jammy:meals:${weekData.weekId}`);
+    return raw ? JSON.parse(raw) : {};
+  }
+
+  function setMealNote(day, slot, text) {
+    const state = getMealState();
+    state[day] = state[day] || {};
+    state[day][slot] = text;
+    localStorage.setItem(`routine-jammy:meals:${weekData.weekId}`, JSON.stringify(state));
+  }
+
   function queueCheckin(payload) {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
     queue.push(payload);
@@ -172,14 +184,26 @@
 
   function renderCheckIn() {
     const checkedState = getCheckedState();
+    const mealState = getMealState();
     const rows = weekData.days.map((day) => {
       const dayChecked = checkedState[day.day] || {};
+      const dayMeals = mealState[day.day] || {};
       const checkboxes = day.tasks.map((task) => `
         <label class="check-item">
           <input type="checkbox" data-day="${day.day}" data-item="${task}" ${dayChecked[task] ? 'checked' : ''}>
           ${task}
         </label>
       `).join('');
+      const mealLog = `
+        <div class="meal-log">
+          <label>아점
+            <textarea data-meal-day="${day.day}" data-meal-slot="아점" placeholder="${day.meal.breakfast}">${dayMeals['아점'] || ''}</textarea>
+          </label>
+          <label>저녁
+            <textarea data-meal-day="${day.day}" data-meal-slot="저녁" placeholder="${day.meal.dinner}">${dayMeals['저녁'] || ''}</textarea>
+          </label>
+        </div>
+      `;
       const reflectionForm = day.reflectionPrompts ? `
         <div class="reflection-form">
           <label>${day.reflectionPrompts[0]}<textarea data-reflection="good"></textarea></label>
@@ -188,7 +212,7 @@
           <button class="primary-button" id="submit-reflection" data-day="${day.day}">회고 저장</button>
         </div>
       ` : '';
-      return `<div class="today-card"><strong>${day.day} ${day.date.slice(5)}</strong><div class="check-grid">${checkboxes}</div>${reflectionForm}</div>`;
+      return `<div class="today-card"><strong>${day.day} ${day.date.slice(5)}</strong><div class="check-grid">${checkboxes}</div>${mealLog}${reflectionForm}</div>`;
     }).join('');
     return `<h2>매일 체크</h2>${rows}`;
   }
@@ -251,6 +275,19 @@
           });
         });
       }
+      document.querySelectorAll('#view textarea[data-meal-day]').forEach((textarea) => {
+        textarea.addEventListener('blur', () => {
+          const day = textarea.dataset.mealDay;
+          const slot = textarea.dataset.mealSlot;
+          const text = textarea.value;
+          setMealNote(day, slot, text);
+          if (text.trim() === '') return;
+          sendCheckin({
+            weekId: weekData.weekId, day, item: slot, checked: true, note: text,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      });
     }
     if (route === '/history') {
       const exportButton = document.getElementById('export-pdf');

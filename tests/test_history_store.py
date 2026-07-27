@@ -98,6 +98,7 @@ def test_render_week_markdown_includes_nutrition_summary_and_recommendations():
         "nutrition": {
             "weeklyAverage": {"kcal": 1850.3, "protein": 95.4, "fat": 65.1, "carb": 210.2},
             "recommendations": ["단백질 비중이 낮은 편이에요 — 단백질 식품표를 참고해서 늘려보세요"],
+            "unmatchedFoodItems": ["희귀채소"],
         },
     }
     text = render_week_markdown("2026-W31", entry)
@@ -108,6 +109,9 @@ def test_render_week_markdown_includes_nutrition_summary_and_recommendations():
     assert "지방 65g" in text
     assert "단백질 95g" in text
     assert "단백질 비중이 낮은 편이에요 — 단백질 식품표를 참고해서 늘려보세요" in text
+    assert "매칭 실패한 재료: 희귀채소" in text
+    assert "⚠️" in text
+    assert "식약처 공공 데이터베이스" in text
 
 
 def test_render_week_markdown_omits_optional_sections_when_absent():

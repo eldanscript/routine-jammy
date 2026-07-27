@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from exercise_stats import DAY_ORDER
+from nutrition_lookup import NUTRITION_DISCLAIMER
 
 _MEAL_ITEMS = ["아점", "저녁"]
 
@@ -78,6 +79,9 @@ def render_week_markdown(week_id: str, entry: dict) -> str:
         if nutrition.get("recommendations"):
             for recommendation in nutrition["recommendations"]:
                 lines.append(f"- {recommendation}")
+        if nutrition.get("unmatchedFoodItems"):
+            lines.append(f"- 매칭 실패한 재료: {', '.join(nutrition['unmatchedFoodItems'])}")
+        lines.append(f"- {NUTRITION_DISCLAIMER}")
     reflection = entry.get("reflection")
     if reflection:
         lines.append("")

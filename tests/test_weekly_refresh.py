@@ -95,6 +95,8 @@ def test_run_writes_history_and_advances_week(tmp_path):
 
     nutrition_stats = json.loads((tmp_path / "nutrition-stats.json").read_text(encoding="utf-8"))
     assert nutrition_stats["weeklyAverage"] == {"kcal": 150.0, "protein": 9.0, "fat": 9.0, "carb": 9.5}
+    assert nutrition_stats["unmatchedFoodItems"] == ["희귀채소"]
+    assert nutrition_stats["disclaimer"]
     assert nutrition_stats["weekId"] == "2026-W31"
     assert nutrition_stats["updatedAt"]
 
@@ -144,7 +146,7 @@ def test_execute_sends_success_telegram_message_on_success(monkeypatch, tmp_path
     assert "2026-W32" in sent["text"]
     assert "운동한 날: 5/7일" in sent["text"]
     assert "연속 3일째" in sent["text"]
-    assert "평균 섭취: 1850kcal, 탄 210g / 지 65g / 단 95g" in sent["text"]
+    assert "평균 섭취(추정치): 1850kcal, 탄 210g / 지 65g / 단 95g" in sent["text"]
 
 
 def test_execute_sends_failure_telegram_message_and_reraises_on_run_error(monkeypatch, tmp_path):

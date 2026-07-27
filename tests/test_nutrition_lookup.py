@@ -28,7 +28,7 @@ def _rice_payload(result_code="00", total_count=1):
         "body": {
             "pageNo": 1,
             "totalCount": total_count,
-            "numOfRows": 5,
+            "numOfRows": 20,
             "items": [
                 {
                     "FOOD_NM_KR": "쌀밥",
@@ -100,6 +100,52 @@ def test_fetch_nutrition_per_100g_maps_verified_columns(monkeypatch):
     result = fetch_nutrition_per_100g("쌀밥")
 
     assert result == {"kcal": 166.0, "protein": 3.36, "fat": 0.32, "carb": 37.33}
+
+
+def test_fetch_nutrition_per_100g_prefers_exact_match_over_partial(monkeypatch):
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_ENDPOINT", "https://fake.data.go.kr/api")
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_KEY", "test-key")
+    payload = {
+        "header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
+        "body": {
+            "pageNo": 1,
+            "totalCount": 3,
+            "numOfRows": 20,
+            "items": [
+                {
+                    "FOOD_NM_KR": "샌드위치_닭가슴살",
+                    "SERVING_SIZE": "100g",
+                    "AMT_NUM1": "240.000",
+                    "AMT_NUM3": "12.18",
+                    "AMT_NUM4": "11.92",
+                    "AMT_NUM6": "20.96",
+                },
+                {
+                    "FOOD_NM_KR": "닭가슴살",
+                    "SERVING_SIZE": "100g",
+                    "AMT_NUM1": "109.000",
+                    "AMT_NUM3": "23.30",
+                    "AMT_NUM4": "1.30",
+                    "AMT_NUM6": "0.00",
+                },
+                {
+                    "FOOD_NM_KR": "닭가슴살_핫도그",
+                    "SERVING_SIZE": "100g",
+                    "AMT_NUM1": "280.000",
+                    "AMT_NUM3": "10.00",
+                    "AMT_NUM4": "18.00",
+                    "AMT_NUM6": "22.00",
+                },
+            ],
+        },
+    }
+    monkeypatch.setattr(
+        nutrition_lookup.requests, "get", lambda *a, **k: _FakeResponse(200, payload)
+    )
+
+    result = fetch_nutrition_per_100g("닭가슴살")
+
+    assert result == {"kcal": 109.0, "protein": 23.30, "fat": 1.30, "carb": 0.00}
 
 
 def test_fetch_nutrition_per_100g_returns_none_when_no_match(monkeypatch):

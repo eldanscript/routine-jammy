@@ -24,6 +24,11 @@ _HIGH_RECOMMENDATIONS = {
 }
 _MAX_RECOMMENDATIONS = 2
 
+NUTRITION_DISCLAIMER = (
+    "⚠️ 영양 수치는 식약처 공공 데이터베이스 자동 매칭 기반의 대략적 추정치입니다 "
+    "(재료명이 가공식품/메뉴로 잘못 매칭될 수 있음)."
+)
+
 
 class NutritionLookupError(RuntimeError):
     pass
@@ -62,12 +67,29 @@ def _serving_size_grams(serving_size):
     return float(value) * 1000 if unit == "kg" else float(value)
 
 
+def _score_candidate(item, food_name):
+    """Score how well an item's FOOD_NM_KR matches `food_name`, higher is better.
+    This DB is dish/product-centric (e.g. "샌드위치_닭가슴살", "두부찌개") rather than a
+    raw-ingredient database, so an exact match is rare — this heuristic prefers an
+    exact match, then a compound name where `food_name` is one of its "_"/space
+    separated tokens (shorter compounds preferred), then falls back to preferring
+    shorter names generally over long branded/menu names."""
+    name = item.get("FOOD_NM_KR", "")
+    if name == food_name:
+        return 100
+    tokens = name.replace(" ", "_").split("_")
+    if food_name in tokens:
+        return 50 - len(name)
+    return -len(name)
+
+
 def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
     """Query the API for `food_name`, return {"kcal": float, "protein": float,
-    "fat": float, "carb": float} per 100g of the best (first) match, or None if no
-    match (totalCount == 0). Reads ROUTINE_NUTRITION_API_ENDPOINT/
-    ROUTINE_NUTRITION_API_KEY from env if endpoint/api_key aren't passed explicitly.
-    Raise NutritionLookupError on a non-200 HTTP response or a non-"00" resultCode."""
+    "fat": float, "carb": float} per 100g of the best-scoring match (see
+    _score_candidate), or None if no match (totalCount == 0). Reads
+    ROUTINE_NUTRITION_API_ENDPOINT/ROUTINE_NUTRITION_API_KEY from env if
+    endpoint/api_key aren't passed explicitly. Raise NutritionLookupError on a
+    non-200 HTTP response or a non-"00" resultCode."""
     endpoint = endpoint or os.environ["ROUTINE_NUTRITION_API_ENDPOINT"]
     api_key = api_key or os.environ["ROUTINE_NUTRITION_API_KEY"]
     response = requests.get(
@@ -75,7 +97,7 @@ def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
         params={
             "serviceKey": api_key,
             "FOOD_NM_KR": food_name,
-            "numOfRows": 5,
+            "numOfRows": 20,
             "pageNo": 1,
             "type": "json",
         },
@@ -94,7 +116,7 @@ def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
     body = payload["body"]
     if body["totalCount"] == 0:
         return None
-    item = body["items"][0]
+    item = max(body["items"], key=lambda candidate: _score_candidate(candidate, food_name))
     scale = 100.0 / _serving_size_grams(item.get("SERVING_SIZE"))
     return {
         "kcal": float(item["AMT_NUM1"]) * scale,

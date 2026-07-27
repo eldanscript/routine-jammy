@@ -11,7 +11,7 @@ from pathlib import Path
 from exercise_stats import build_day_level, days_with_any_exercise, exercised_sequence, longest_current_streak
 from history_store import extract_meal_log, load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
-from nutrition_lookup import estimate_meal_nutrition, weekly_macro_recommendations
+from nutrition_lookup import NUTRITION_DISCLAIMER, estimate_meal_nutrition, weekly_macro_recommendations
 from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
 from sheet_client import fetch_week
 from telegram_notifier import send_telegram
@@ -111,6 +111,8 @@ def run(
         json.dumps({
             "weeklyAverage": nutrition["weeklyAverage"],
             "recommendations": nutrition["recommendations"],
+            "unmatchedFoodItems": nutrition["unmatchedFoodItems"],
+            "disclaimer": NUTRITION_DISCLAIMER,
             "weekId": week_id,
             "updatedAt": datetime.now().astimezone().isoformat(),
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -165,7 +167,7 @@ def build_success_message(result: dict) -> str:
     )
     nutrition_average = result["nutritionWeeklyAverage"]
     lines.append(
-        f"평균 섭취: {round(nutrition_average['kcal'])}kcal, "
+        f"평균 섭취(추정치): {round(nutrition_average['kcal'])}kcal, "
         f"탄 {round(nutrition_average['carb'])}g / "
         f"지 {round(nutrition_average['fat'])}g / "
         f"단 {round(nutrition_average['protein'])}g"

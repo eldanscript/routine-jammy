@@ -244,9 +244,20 @@
       const ratio = RoutineLogic.completionRatio(responses, category);
       return `<li>${category}: ${Math.round(ratio * 100)}%</li>`;
     }).join('');
+    const mealState = getMealState();
+    const mealRows = weekData.days.map((day) => {
+      const dayMeals = mealState[day.day] || {};
+      const breakfast = dayMeals['아점'] ? escapeHtml(dayMeals['아점']) : '<span class="muted">(입력 없음)</span>';
+      const dinner = dayMeals['저녁'] ? escapeHtml(dayMeals['저녁']) : '<span class="muted">(입력 없음)</span>';
+      return `<tr><td>${day.day}</td><td>${breakfast}</td><td>${dinner}</td></tr>`;
+    }).join('');
     return `
       <h2>리포트</h2>
       <div class="today-card blue"><strong>이번 주 완료율 (이 기기 기준)</strong><ul>${rateRows}</ul></div>
+      <div class="today-card peach">
+        <strong>이번 주 식단 기록</strong>
+        <table class="meal-table"><thead><tr><th>요일</th><th>아점</th><th>저녁</th></tr></thead><tbody>${mealRows}</tbody></table>
+      </div>
       <p class="muted">체크한 결과는 자동으로 동기화됩니다. 이번 주 결과를 문서로 남기고 싶으면 아래 버튼을 눌러주세요.</p>
       <button id="export-pdf" class="primary-button">이번 주 PDF로 내보내기</button>
     `;

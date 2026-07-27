@@ -199,6 +199,34 @@ def test_fetch_nutrition_per_100g_raises_on_non_00_result_code(monkeypatch):
         fetch_nutrition_per_100g("쌀밥")
 
 
+def test_fetch_nutrition_per_100g_raises_on_non_00_result_code_without_result_msg(monkeypatch):
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_ENDPOINT", "https://fake.data.go.kr/api")
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_KEY", "test-key")
+    payload = {
+        "header": {"resultCode": "99"},
+        "body": {},
+    }
+    monkeypatch.setattr(
+        nutrition_lookup.requests, "get", lambda *a, **k: _FakeResponse(200, payload)
+    )
+
+    with pytest.raises(NutritionLookupError, match="no message"):
+        fetch_nutrition_per_100g("쌀밥")
+
+
+def test_fetch_nutrition_per_100g_raises_on_zero_serving_size(monkeypatch):
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_ENDPOINT", "https://fake.data.go.kr/api")
+    monkeypatch.setenv("ROUTINE_NUTRITION_API_KEY", "test-key")
+    payload = _rice_payload()
+    payload["body"]["items"][0]["SERVING_SIZE"] = "0g"
+    monkeypatch.setattr(
+        nutrition_lookup.requests, "get", lambda *a, **k: _FakeResponse(200, payload)
+    )
+
+    with pytest.raises(NutritionLookupError):
+        fetch_nutrition_per_100g("쌀밥")
+
+
 def test_estimate_meal_nutrition_scales_by_grams():
     def fake_lookup(food_name):
         return {"kcal": 200.0, "protein": 20.0, "fat": 10.0, "carb": 5.0}

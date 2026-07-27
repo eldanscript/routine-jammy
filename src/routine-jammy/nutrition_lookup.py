@@ -89,10 +89,12 @@ def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
     _score_candidate), or None if no match (totalCount == 0). Reads
     ROUTINE_NUTRITION_API_ENDPOINT/ROUTINE_NUTRITION_API_KEY from env if
     endpoint/api_key aren't passed explicitly. Raise NutritionLookupError on any
-    failure mode of the external call — non-200 HTTP response, a non-"00"
-    resultCode, a network-level failure (timeout, connection error), invalid JSON,
-    or an unexpected response shape — so callers can rely on catching just this one
-    exception type rather than the underlying requests/json/KeyError variants."""
+    failure mode of the external call or its response — non-200 HTTP response, a
+    network-level failure (timeout, connection error), or ANY problem while parsing/
+    scoring/scaling the response body (invalid JSON, a non-"00" resultCode, missing
+    keys, non-numeric fields, division by a zero serving size, etc.) — so callers can
+    rely on catching just this one exception type, never a raw requests/json/KeyError/
+    ZeroDivisionError escaping from here."""
     endpoint = endpoint or os.environ["ROUTINE_NUTRITION_API_ENDPOINT"]
     api_key = api_key or os.environ["ROUTINE_NUTRITION_API_KEY"]
     try:
@@ -118,15 +120,11 @@ def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
     try:
         payload = response.json()
         result_code = payload["header"]["resultCode"]
-    except ValueError as error:
-        raise NutritionLookupError(f"Nutrition API returned invalid JSON: {error}") from None
-    except KeyError:
-        raise NutritionLookupError("Nutrition API response missing expected header") from None
-    if result_code != "00":
-        raise NutritionLookupError(
-            f"Nutrition API returned resultCode {result_code}: {payload['header']['resultMsg']}"
-        )
-    try:
+        if result_code != "00":
+            raise NutritionLookupError(
+                f"Nutrition API returned resultCode {result_code}: "
+                f"{payload['header'].get('resultMsg', '(no message)')}"
+            )
         body = payload["body"]
         if body["totalCount"] == 0:
             return None
@@ -138,9 +136,11 @@ def fetch_nutrition_per_100g(food_name, endpoint=None, api_key=None):
             "fat": float(item["AMT_NUM4"]) * scale,
             "carb": float(item["AMT_NUM6"]) * scale,
         }
-    except (KeyError, ValueError, TypeError) as error:
+    except NutritionLookupError:
+        raise  # already the right exception type, don't re-wrap
+    except Exception as error:
         raise NutritionLookupError(
-            f"Nutrition API response had an unexpected shape: {type(error).__name__}: {error}"
+            f"Nutrition API response could not be processed: {type(error).__name__}: {error}"
         ) from None
 
 

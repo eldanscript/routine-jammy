@@ -14,7 +14,7 @@ def _seed_current_week(path):
             "weekId": "2026-W31",
             "startDate": "2026-07-27",
             "endDate": "2026-08-02",
-            "days": [{"day": "월", "date": "2026-07-27", "tasks": ["운동", "물"]}],
+            "days": [{"day": "월", "date": "2026-07-27", "tasks": ["슬로우 조깅", "물"]}],
         }),
         encoding="utf-8",
     )
@@ -29,7 +29,7 @@ def test_run_writes_history_and_advances_week(tmp_path):
     def fake_fetch(week_id):
         assert week_id == "2026-W31"
         return {
-            "responses": [{"day": "월", "item": "운동", "checked": True}],
+            "responses": [{"day": "월", "item": "슬로우 조깅", "checked": True}],
             "reflection": {"good": "조깅"},
         }
 
@@ -66,7 +66,7 @@ def test_commit_and_push_refuses_when_not_on_main(tmp_path):
 
 _FAKE_RESULT = {
     "weekId": "2026-W31",
-    "rates": {"운동": 0.86, "물": 0.57},
+    "rates": {"슬로우 조깅": 0.86, "물": 0.57},
     "adjustments": ["물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안"],
     "nextWeekId": "2026-W32",
 }

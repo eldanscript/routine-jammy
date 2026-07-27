@@ -12,10 +12,10 @@ def test_shift_week_moves_dates_forward_by_seven_days():
         "weekId": "2026-W31",
         "startDate": "2026-07-27",
         "endDate": "2026-08-02",
-        "days": [{"day": "월", "date": "2026-07-27", "tasks": ["운동", "물"]}],
+        "days": [{"day": "월", "date": "2026-07-27", "tasks": ["슬로우 조깅", "물"]}],
     }
     next_week = shift_week(current)
     assert next_week["weekId"] == "2026-W32"
     assert next_week["startDate"] == "2026-08-03"
     assert next_week["days"][0]["date"] == "2026-08-03"
-    assert next_week["days"][0]["tasks"] == ["운동", "물"]
+    assert next_week["days"][0]["tasks"] == ["슬로우 조깅", "물"]

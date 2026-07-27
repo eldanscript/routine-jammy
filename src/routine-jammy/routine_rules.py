@@ -1,6 +1,6 @@
 """Pure functions for scoring a week's check-ins and deciding routine adjustments."""
 
-CATEGORIES = ["운동", "단백질", "채소", "간식계획", "바이올린", "물"]
+CATEGORIES = ["슬로우 조깅", "근력", "단백질", "채소", "간식계획", "바이올린", "물"]
 
 _SUGGESTIONS = {
     "물": "물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안",

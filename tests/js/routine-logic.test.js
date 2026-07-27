@@ -4,17 +4,17 @@ const { completionRatio, isDayComplete } = require('../../docs/js/routine-logic.
 
 test('completionRatio counts checked responses for one item over 7 days', () => {
   const responses = [
-    { item: '운동', checked: true },
-    { item: '운동', checked: true },
-    { item: '운동', checked: false },
+    { item: '슬로우 조깅', checked: true },
+    { item: '슬로우 조깅', checked: true },
+    { item: '슬로우 조깅', checked: false },
     { item: '물', checked: true },
   ];
-  assert.equal(completionRatio(responses, '운동'), 2 / 7);
+  assert.equal(completionRatio(responses, '슬로우 조깅'), 2 / 7);
   assert.equal(completionRatio(responses, '물'), 1 / 7);
   assert.equal(completionRatio(responses, '바이올린'), 0);
 });
 
 test('isDayComplete is true only when every task for the day is checked', () => {
-  assert.equal(isDayComplete(['운동', '물'], ['운동', '물']), true);
-  assert.equal(isDayComplete(['운동', '물'], ['운동']), false);
+  assert.equal(isDayComplete(['슬로우 조깅', '물'], ['슬로우 조깅', '물']), true);
+  assert.equal(isDayComplete(['슬로우 조깅', '물'], ['슬로우 조깅']), false);
 });

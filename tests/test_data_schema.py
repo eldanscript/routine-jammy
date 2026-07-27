@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-REQUIRED_TASKS = ["운동", "단백질", "채소", "간식계획", "바이올린", "물"]
+REQUIRED_TASKS = ["슬로우 조깅", "근력", "단백질", "채소", "간식계획", "바이올린", "물"]
 
 
 def _load(name):

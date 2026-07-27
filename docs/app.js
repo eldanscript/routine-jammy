@@ -13,16 +13,19 @@
   let staticData = null;
   let weekData = null;
   let exerciseStats = null;
+  let nutritionStats = null;
 
   async function loadData() {
-    const [staticResponse, weekResponse, exerciseStatsResponse] = await Promise.all([
+    const [staticResponse, weekResponse, exerciseStatsResponse, nutritionStatsResponse] = await Promise.all([
       fetch('data/routine-static.json'),
       fetch('data/current-week.json'),
       fetch('data/exercise-stats.json'),
+      fetch('data/nutrition-stats.json'),
     ]);
     staticData = await staticResponse.json();
     weekData = await weekResponse.json();
     exerciseStats = exerciseStatsResponse.ok ? await exerciseStatsResponse.json() : null;
+    nutritionStats = nutritionStatsResponse.ok ? await nutritionStatsResponse.json() : null;
   }
 
   function todayIndex() {
@@ -257,10 +260,20 @@
     const exerciseStatsCard = exerciseStats
       ? `<div class="today-card mint"><strong>지난 주 운동 현황</strong><p>${exerciseStats.weekId} · ${exerciseStats.exerciseDaysThisWeek}/7일 · 연속 ${exerciseStats.exerciseStreak}일째</p></div>`
       : '';
+    const nutritionCard = nutritionStats ? `
+      <div class="today-card butter">
+        <strong>지난 주 식단 영양 (${nutritionStats.weekId})</strong>
+        <p>평균: ${Math.round(nutritionStats.weeklyAverage.kcal)}kcal · 탄 ${Math.round(nutritionStats.weeklyAverage.carb)}g · 지 ${Math.round(nutritionStats.weeklyAverage.fat)}g · 단 ${Math.round(nutritionStats.weeklyAverage.protein)}g</p>
+        ${nutritionStats.recommendations.length ? `<ul>${nutritionStats.recommendations.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>` : ''}
+        ${nutritionStats.unmatchedFoodItems.length ? `<p class="muted">매칭 안 된 항목: ${nutritionStats.unmatchedFoodItems.map(escapeHtml).join(', ')}</p>` : ''}
+        <p class="muted">${escapeHtml(nutritionStats.disclaimer)}</p>
+      </div>
+    ` : '';
     return `
       <h2>리포트</h2>
       <div class="today-card blue"><strong>이번 주 완료율 (이 기기 기준)</strong><ul>${rateRows}</ul></div>
       ${exerciseStatsCard}
+      ${nutritionCard}
       <div class="today-card peach">
         <strong>이번 주 식단 기록</strong>
         <table class="meal-table"><thead><tr><th>요일</th><th>아점</th><th>저녁</th></tr></thead><tbody>${mealRows}</tbody></table>

@@ -11,12 +11,49 @@ from pathlib import Path
 from exercise_stats import build_day_level, days_with_any_exercise, exercised_sequence, longest_current_streak
 from history_store import extract_meal_log, load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
+from nutrition_lookup import estimate_meal_nutrition, weekly_macro_recommendations
 from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
 from sheet_client import fetch_week
 from telegram_notifier import send_telegram
 
+_MACROS = ["kcal", "protein", "fat", "carb"]
 
-def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) -> dict:
+
+def _weekly_nutrition(meals, estimate_meal_nutrition_fn):
+    daily_totals = {}
+    unmatched = []
+    for day, day_meals in meals.items():
+        day_total = {macro: 0.0 for macro in _MACROS}
+        for note in day_meals.values():
+            estimate = estimate_meal_nutrition_fn(note)
+            for macro in _MACROS:
+                day_total[macro] += estimate[macro]
+            unmatched.extend(estimate["unmatchedItems"])
+        daily_totals[day] = day_total
+
+    days_with_data = len(daily_totals)
+    if days_with_data == 0:
+        weekly_average = {macro: 0.0 for macro in _MACROS}
+    else:
+        weekly_average = {
+            macro: sum(day_total[macro] for day_total in daily_totals.values()) / days_with_data
+            for macro in _MACROS
+        }
+
+    return {
+        "dailyTotals": daily_totals,
+        "weeklyAverage": weekly_average,
+        "unmatchedFoodItems": sorted(set(unmatched)),
+        "recommendations": weekly_macro_recommendations(weekly_average),
+    }
+
+
+def run(
+    current_week_path: Path,
+    history_dir: Path,
+    fetch_week_fn=fetch_week,
+    estimate_meal_nutrition_fn=estimate_meal_nutrition,
+) -> dict:
     current_week = json.loads(current_week_path.read_text(encoding="utf-8"))
     week_id = current_week["weekId"]
 
@@ -37,6 +74,7 @@ def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) ->
     meals = extract_meal_log(sheet_data["responses"])
     exercise_days = days_with_any_exercise(day_level)
     streak = longest_current_streak(exercised_sequence(history, week_id, day_level))
+    nutrition = _weekly_nutrition(meals, estimate_meal_nutrition_fn)
 
     entry = {
         "completionByCategory": rates,
@@ -46,6 +84,7 @@ def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) ->
         "meals": meals,
         "exerciseDaysThisWeek": exercise_days,
         "exerciseStreak": streak,
+        "nutrition": nutrition,
     }
     save_week(history_dir, week_id, entry)
     save_week_markdown(history_dir, week_id, entry)
@@ -67,6 +106,16 @@ def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) ->
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
+    nutrition_stats_path = current_week_path.parent / "nutrition-stats.json"
+    nutrition_stats_path.write_text(
+        json.dumps({
+            "weeklyAverage": nutrition["weeklyAverage"],
+            "recommendations": nutrition["recommendations"],
+            "weekId": week_id,
+            "updatedAt": datetime.now().astimezone().isoformat(),
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+
     return {
         "weekId": week_id,
         "rates": rates,
@@ -74,6 +123,7 @@ def run(current_week_path: Path, history_dir: Path, fetch_week_fn=fetch_week) ->
         "nextWeekId": next_week["weekId"],
         "exerciseDaysThisWeek": exercise_days,
         "exerciseStreak": streak,
+        "nutritionWeeklyAverage": nutrition["weeklyAverage"],
     }
 
 
@@ -87,7 +137,12 @@ def commit_and_push(repo_root: Path) -> None:
             f"refusing to commit_and_push: expected branch 'main', found '{current_branch}'"
         )
     subprocess.run(
-        ["git", "add", "history", "docs/data/current-week.json", "docs/data/exercise-stats.json"],
+        [
+            "git", "add", "history",
+            "docs/data/current-week.json",
+            "docs/data/exercise-stats.json",
+            "docs/data/nutrition-stats.json",
+        ],
         cwd=repo_root, check=True,
     )
     subprocess.run(
@@ -107,6 +162,13 @@ def build_success_message(result: dict) -> str:
         lines.extend(f"- {adjustment}" for adjustment in result["adjustments"])
     lines.append(
         f"운동한 날: {result['exerciseDaysThisWeek']}/7일, 연속 {result['exerciseStreak']}일째"
+    )
+    nutrition_average = result["nutritionWeeklyAverage"]
+    lines.append(
+        f"평균 섭취: {round(nutrition_average['kcal'])}kcal, "
+        f"탄 {round(nutrition_average['carb'])}g / "
+        f"지 {round(nutrition_average['fat'])}g / "
+        f"단 {round(nutrition_average['protein'])}g"
     )
     lines.append(f"다음 주({result['nextWeekId']}) 루틴이 배포되었습니다.")
     return "\n".join(lines)

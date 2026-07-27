@@ -66,6 +66,18 @@ def render_week_markdown(week_id: str, entry: dict) -> str:
             day_meals = meals[day]
             parts = [f"{item}: {day_meals[item]}" for item in _MEAL_ITEMS if item in day_meals]
             lines.append(f"- {day} - " + ", ".join(parts))
+    nutrition = entry.get("nutrition")
+    if nutrition:
+        average = nutrition["weeklyAverage"]
+        lines.append("")
+        lines.append("## 영양 요약 (주간 평균)")
+        lines.append(
+            f"- {round(average['kcal'])}kcal (탄수화물 {round(average['carb'])}g / "
+            f"지방 {round(average['fat'])}g / 단백질 {round(average['protein'])}g)"
+        )
+        if nutrition.get("recommendations"):
+            for recommendation in nutrition["recommendations"]:
+                lines.append(f"- {recommendation}")
     reflection = entry.get("reflection")
     if reflection:
         lines.append("")

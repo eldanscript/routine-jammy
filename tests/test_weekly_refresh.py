@@ -20,6 +20,16 @@ def _seed_current_week(path):
     )
 
 
+def _fake_estimate_meal_nutrition(note):
+    fixtures = {
+        "계란후라이": {"kcal": 200.0, "protein": 14.0, "fat": 16.0, "carb": 1.0,
+                    "matchedItems": [{"food_name": "계란후라이", "grams": 100.0}], "unmatchedItems": []},
+        "샐러드": {"kcal": 100.0, "protein": 4.0, "fat": 2.0, "carb": 18.0,
+                  "matchedItems": [{"food_name": "샐러드", "grams": 100.0}], "unmatchedItems": ["희귀채소"]},
+    }
+    return fixtures[note]
+
+
 def test_run_writes_history_and_advances_week(tmp_path):
     current_week_path = tmp_path / "current-week.json"
     history_dir = tmp_path / "history"
@@ -39,12 +49,17 @@ def test_run_writes_history_and_advances_week(tmp_path):
             "reflection": {"good": "조깅"},
         }
 
-    result = run(current_week_path, history_dir, fetch_week_fn=fake_fetch)
+    result = run(
+        current_week_path, history_dir,
+        fetch_week_fn=fake_fetch,
+        estimate_meal_nutrition_fn=_fake_estimate_meal_nutrition,
+    )
 
     assert result["weekId"] == "2026-W31"
     assert result["nextWeekId"] == "2026-W32"
     assert result["exerciseDaysThisWeek"] == 2
     assert result["exerciseStreak"] == 2
+    assert result["nutritionWeeklyAverage"] == {"kcal": 150.0, "protein": 9.0, "fat": 9.0, "carb": 9.5}
 
     history = json.loads((history_dir / "data.json").read_text(encoding="utf-8"))
     assert "2026-W31" in history["weeks"]
@@ -60,6 +75,13 @@ def test_run_writes_history_and_advances_week(tmp_path):
     }
     assert entry["exerciseDaysThisWeek"] == 2
     assert entry["exerciseStreak"] == 2
+    assert entry["nutrition"]["dailyTotals"] == {
+        "월": {"kcal": 200.0, "protein": 14.0, "fat": 16.0, "carb": 1.0},
+        "화": {"kcal": 100.0, "protein": 4.0, "fat": 2.0, "carb": 18.0},
+    }
+    assert entry["nutrition"]["weeklyAverage"] == {"kcal": 150.0, "protein": 9.0, "fat": 9.0, "carb": 9.5}
+    assert entry["nutrition"]["unmatchedFoodItems"] == ["희귀채소"]
+    assert isinstance(entry["nutrition"]["recommendations"], list)
 
     next_week = json.loads(current_week_path.read_text(encoding="utf-8"))
     assert next_week["weekId"] == "2026-W32"
@@ -70,6 +92,11 @@ def test_run_writes_history_and_advances_week(tmp_path):
     assert exercise_stats["exerciseStreak"] == 2
     assert exercise_stats["weekId"] == "2026-W31"
     assert exercise_stats["updatedAt"]
+
+    nutrition_stats = json.loads((tmp_path / "nutrition-stats.json").read_text(encoding="utf-8"))
+    assert nutrition_stats["weeklyAverage"] == {"kcal": 150.0, "protein": 9.0, "fat": 9.0, "carb": 9.5}
+    assert nutrition_stats["weekId"] == "2026-W31"
+    assert nutrition_stats["updatedAt"]
 
 
 def _init_repo_on_branch(repo_root, branch_name):
@@ -97,6 +124,7 @@ _FAKE_RESULT = {
     "nextWeekId": "2026-W32",
     "exerciseDaysThisWeek": 5,
     "exerciseStreak": 3,
+    "nutritionWeeklyAverage": {"kcal": 1850.0, "protein": 95.0, "fat": 65.0, "carb": 210.0},
 }
 
 
@@ -116,6 +144,7 @@ def test_execute_sends_success_telegram_message_on_success(monkeypatch, tmp_path
     assert "2026-W32" in sent["text"]
     assert "운동한 날: 5/7일" in sent["text"]
     assert "연속 3일째" in sent["text"]
+    assert "평균 섭취: 1850kcal, 탄 210g / 지 65g / 단 95g" in sent["text"]
 
 
 def test_execute_sends_failure_telegram_message_and_reraises_on_run_error(monkeypatch, tmp_path):

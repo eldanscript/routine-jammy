@@ -90,6 +90,26 @@ def test_render_week_markdown_includes_meal_log_and_exercise_summary():
     assert "연속 3일째" in text
 
 
+def test_render_week_markdown_includes_nutrition_summary_and_recommendations():
+    entry = {
+        "completionByCategory": {"슬로우 조깅": 0.86},
+        "adjustmentsApplied": [],
+        "reflection": {},
+        "nutrition": {
+            "weeklyAverage": {"kcal": 1850.3, "protein": 95.4, "fat": 65.1, "carb": 210.2},
+            "recommendations": ["단백질 비중이 낮은 편이에요 — 단백질 식품표를 참고해서 늘려보세요"],
+        },
+    }
+    text = render_week_markdown("2026-W31", entry)
+
+    assert "## 영양 요약 (주간 평균)" in text
+    assert "1850kcal" in text
+    assert "탄수화물 210g" in text
+    assert "지방 65g" in text
+    assert "단백질 95g" in text
+    assert "단백질 비중이 낮은 편이에요 — 단백질 식품표를 참고해서 늘려보세요" in text
+
+
 def test_render_week_markdown_omits_optional_sections_when_absent():
     entry = {
         "completionByCategory": {"슬로우 조깅": 0.86},
@@ -100,3 +120,4 @@ def test_render_week_markdown_omits_optional_sections_when_absent():
 
     assert "## 식사 기록" not in text
     assert "## 운동 요약" not in text
+    assert "## 영양 요약" not in text

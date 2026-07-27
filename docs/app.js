@@ -51,6 +51,15 @@
     localStorage.setItem(`routine-jammy:meals:${weekData.weekId}`, JSON.stringify(state));
   }
 
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function queueCheckin(payload) {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
     queue.push(payload);
@@ -197,10 +206,10 @@
       const mealLog = `
         <div class="meal-log">
           <label>아점
-            <textarea data-meal-day="${day.day}" data-meal-slot="아점" placeholder="${day.meal.breakfast}">${dayMeals['아점'] || ''}</textarea>
+            <textarea data-meal-day="${day.day}" data-meal-slot="아점" placeholder="${day.meal.breakfast}">${escapeHtml(dayMeals['아점'] || '')}</textarea>
           </label>
           <label>저녁
-            <textarea data-meal-day="${day.day}" data-meal-slot="저녁" placeholder="${day.meal.dinner}">${dayMeals['저녁'] || ''}</textarea>
+            <textarea data-meal-day="${day.day}" data-meal-slot="저녁" placeholder="${day.meal.dinner}">${escapeHtml(dayMeals['저녁'] || '')}</textarea>
           </label>
         </div>
       `;

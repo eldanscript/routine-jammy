@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from catalog import load_catalog
 from exercise_stats import build_day_level, days_with_any_exercise, exercised_sequence, longest_current_streak
 from history_store import extract_meal_log, load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
@@ -58,7 +59,8 @@ def run(
     week_id = current_week["weekId"]
 
     sheet_data = fetch_week_fn(week_id)
-    rates = completion_by_category(sheet_data["responses"])
+    catalog_items = load_catalog(Path(__file__).resolve().parents[2] / "catalog.json")
+    rates = completion_by_category(sheet_data["responses"], catalog_items)
 
     history = load_history(history_dir)
     previous_week_ids = sorted(w for w in history["weeks"] if w < week_id)
@@ -68,7 +70,7 @@ def run(
         else None
     )
     low_categories = find_low_categories(rates, previous_rates)
-    adjustments = suggest_adjustments(low_categories)
+    adjustments = suggest_adjustments(low_categories, catalog_items)
 
     day_level = build_day_level(sheet_data["responses"])
     meals = extract_meal_log(sheet_data["responses"])

@@ -1,31 +1,48 @@
-"""Pure functions for scoring a week's check-ins and deciding routine adjustments."""
+"""주간 체크인 채점과 루틴 조정 판정 (순수 함수).
 
-CATEGORIES = ["슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크", "간식섭취", "바이올린"]
+아이템 목록은 카탈로그(catalog.py)에서 오며 이 모듈에 하드코딩하지 않는다.
+`logging` 타입 아이템은 체크박스가 아니라 자유 텍스트 기록이므로 완료율 집계에서
+제외되고, 별도 규칙(recorded_days_by_item / find_low_logging_items)으로 판정한다.
+"""
 
-_SUGGESTIONS = {
-    "바이올린": "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안",
-    "간식섭취": "간식섭취 체크 기준을 더 쉽게 낮추는 걸 제안",
-}
+RATE_TRACKED_RULE_TYPES = ("binaryCheck", "timedPractice")
 
 
-def completion_by_category(responses):
-    totals = {category: 0 for category in CATEGORIES}
+def _rate_tracked(items):
+    return [item for item in items if item["ruleType"] in RATE_TRACKED_RULE_TYPES]
+
+
+def completion_by_category(responses, items):
+    """items 중 완료율 추적 대상(binaryCheck/timedPractice)에 대해 주간 완료율을 낸다.
+
+    체크된 일수 / 7 로 계산하고 소수 둘째 자리에서 반올림한다. 카탈로그에 없는 아이템이
+    responses에 있으면 무시한다.
+    """
+    totals = {item["id"]: 0 for item in _rate_tracked(items)}
     for response in responses:
         if response["item"] in totals and response["checked"]:
             totals[response["item"]] += 1
-    return {category: round(count / 7, 2) for category, count in totals.items()}
+    return {item_id: round(count / 7, 2) for item_id, count in totals.items()}
 
 
 def find_low_categories(current_rates, previous_rates, threshold=0.5):
+    """이번 주와 지난 주가 **각각** threshold 미만인 아이템 id를 낸다.
+
+    2주 합산이 아니라 주 단위 독립 판정이다. 지난 주 이력이 없으면 아무것도 내지 않는다.
+    """
     if not previous_rates:
         return []
     low = []
-    for category, rate in current_rates.items():
-        previous_rate = previous_rates.get(category)
+    for item_id, rate in current_rates.items():
+        previous_rate = previous_rates.get(item_id)
         if rate < threshold and previous_rate is not None and previous_rate < threshold:
-            low.append(category)
+            low.append(item_id)
     return low
 
 
-def suggest_adjustments(low_categories):
-    return [_SUGGESTIONS[category] for category in low_categories if category in _SUGGESTIONS]
+def suggest_adjustments(low_ids, items):
+    """low_ids 중 카탈로그에 suggestion 문구가 있는 아이템의 문구만 낸다."""
+    suggestions = {
+        item["id"]: item["suggestion"] for item in items if item.get("suggestion")
+    }
+    return [suggestions[item_id] for item_id in low_ids if item_id in suggestions]

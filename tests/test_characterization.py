@@ -4,6 +4,9 @@
 바꾸지 않는다**. 기대값이 바뀌어야 통과한다면 그것은 회귀다.
 """
 
+from pathlib import Path
+
+from catalog import load_catalog
 from exercise_stats import (
     build_day_level,
     category_skip_pattern,
@@ -14,6 +17,8 @@ from exercise_stats import (
 )
 from history_store import extract_meal_log, render_week_markdown
 from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
+
+CATALOG = load_catalog(Path(__file__).resolve().parents[1] / "catalog.json")
 
 JAMMY_WEEK_RESPONSES = [
     {"day": "월", "item": "슬로우 조깅", "checked": True},
@@ -64,14 +69,14 @@ JAMMY_CURRENT_WEEK_ID = "2026-W03"
 
 
 def test_completion_rates_cover_exactly_the_seven_tracked_items():
-    rates = completion_by_category(JAMMY_WEEK_RESPONSES)
+    rates = completion_by_category(JAMMY_WEEK_RESPONSES, CATALOG)
     assert set(rates) == {
         "슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크", "간식섭취", "바이올린",
     }
 
 
 def test_completion_rates_exact_values():
-    rates = completion_by_category(JAMMY_WEEK_RESPONSES)
+    rates = completion_by_category(JAMMY_WEEK_RESPONSES, CATALOG)
     assert rates["슬로우 조깅"] == round(2 / 7, 2)
     assert rates["스쿼트"] == round(1 / 7, 2)
     assert rates["데드리프트"] == 0.0
@@ -79,7 +84,7 @@ def test_completion_rates_exact_values():
 
 
 def test_meal_items_are_not_in_completion_rates():
-    rates = completion_by_category(JAMMY_WEEK_RESPONSES)
+    rates = completion_by_category(JAMMY_WEEK_RESPONSES, CATALOG)
     assert "아점" not in rates
     assert "저녁" not in rates
 
@@ -97,13 +102,13 @@ def test_single_low_week_does_not_trigger():
 
 
 def test_only_violin_and_snack_have_suggestion_text():
-    assert suggest_adjustments(["바이올린"]) == [
+    assert suggest_adjustments(["바이올린"], CATALOG) == [
         "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안"
     ]
-    assert suggest_adjustments(["간식섭취"]) == [
+    assert suggest_adjustments(["간식섭취"], CATALOG) == [
         "간식섭취 체크 기준을 더 쉽게 낮추는 걸 제안"
     ]
-    assert suggest_adjustments(["슬로우 조깅", "스쿼트", "플랭크"]) == []
+    assert suggest_adjustments(["슬로우 조깅", "스쿼트", "플랭크"], CATALOG) == []
 
 
 def test_exercise_day_count_ignores_non_exercise_items():

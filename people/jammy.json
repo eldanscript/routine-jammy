@@ -1,0 +1,17 @@
+{
+  "personId": "jammy",
+  "displayName": "재미",
+  "themeId": "pastel",
+  "active": true,
+  "items": [
+    "슬로우 조깅",
+    "스쿼트",
+    "데드리프트",
+    "런지",
+    "플랭크",
+    "간식섭취",
+    "바이올린",
+    "아점",
+    "저녁"
+  ]
+}

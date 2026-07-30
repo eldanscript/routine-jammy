@@ -163,7 +163,8 @@ Expected: PASS (9 passed). 현재 코드의 동작을 기록하는 것이므로 
 - [ ] **Step 3: 전체 스위트 확인**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: `73 passed` (기존 64 + 신규 9)
+Expected: 전부 통과, 실패 0. 신규 특성화 테스트가 통과 수에 더해진다.
+**절대 개수를 외우지 말 것** — 계획 작성 시점의 숫자이므로 앞선 Task에서 테스트가 늘면 달라진다. 판정 기준은 항상 **실패 0 + 직전 단계보다 줄지 않음**이다.
 
 - [ ] **Step 4: 커밋**
 
@@ -591,7 +592,7 @@ from catalog import load_catalog
 - [ ] **Step 7: 전체 스위트 통과 확인**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: `81 passed` (73 + 카탈로그 8)
+Expected: 전부 통과, 실패 0 (카탈로그 테스트만큼 늘어난다)
 
 - [ ] **Step 8: 커밋**
 
@@ -851,7 +852,7 @@ from catalog import item_ids, items_by_group
 - [ ] **Step 7: 전체 스위트 통과 확인**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: `88 passed`
+Expected: 전부 통과, 실패 0
 
 - [ ] **Step 8: 하드코딩이 정말 사라졌는지 확인**
 
@@ -1199,7 +1200,7 @@ Run: `grep -n "data/" docs/app.js`
 - [ ] **Step 7: 전체 스위트 통과 확인**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: `98 passed`. `tests/test_data_schema.py`가 `docs/data/current-week.json`을 직접 열고 있으면 새 경로로 고친다.
+Expected: 전부 통과, 실패 0. `tests/test_data_schema.py`가 `docs/data/current-week.json`을 직접 열고 있으면 새 경로로 고친다.
 
 - [ ] **Step 8: 화면 확인**
 
@@ -1432,7 +1433,7 @@ def main() -> None:
 - [ ] **Step 5: 통과 확인**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: `100 passed`
+Expected: 전부 통과, 실패 0
 
 - [ ] **Step 6: 커밋**
 
@@ -1692,7 +1693,7 @@ def fetch_week(week_id: str, person: str | None = None) -> dict:
 - [ ] **Step 4: 통과 확인**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: `102 passed`
+Expected: 전부 통과, 실패 0
 
 - [ ] **Step 5: 커밋**
 
@@ -1859,7 +1860,7 @@ log and weekly nutrition averages all match."
 
 ## 완료 기준
 
-- [ ] `python3 -m pytest tests/ -q` 가 102개 이상 통과
+- [ ] `python3 -m pytest tests/ -q` 가 **실패 0**으로 통과하고, 착수 전(64개)보다 테스트 수가 늘어 있음
 - [ ] `grep -rn "슬로우 조깅\|아점\|저녁" src/routine-jammy/` 가 아무것도 출력하지 않음
 - [ ] jammy 화면의 완료율·연속일수·리포트 탭·주간 이력이 착수 전과 동일 (Task 11 Step 8에서 대조 완료)
 - [ ] 시트 두 곳 모두 `person` 컬럼이 있고 빈 값이 없음

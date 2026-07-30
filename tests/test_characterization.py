@@ -6,7 +6,7 @@
 
 from pathlib import Path
 
-from catalog import load_catalog
+from catalog import item_ids, items_by_group, load_catalog
 from exercise_stats import (
     build_day_level,
     category_skip_pattern,
@@ -19,6 +19,8 @@ from history_store import extract_meal_log, render_week_markdown
 from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
 
 CATALOG = load_catalog(Path(__file__).resolve().parents[1] / "catalog.json")
+EXERCISE_IDS = item_ids(items_by_group(CATALOG, "exercise"))
+MEAL_IDS = item_ids(items_by_group(CATALOG, "meal"))
 
 JAMMY_WEEK_RESPONSES = [
     {"day": "월", "item": "슬로우 조깅", "checked": True},
@@ -113,11 +115,11 @@ def test_only_violin_and_snack_have_suggestion_text():
 
 def test_exercise_day_count_ignores_non_exercise_items():
     day_level = build_day_level(JAMMY_WEEK_RESPONSES)
-    assert days_with_any_exercise(day_level) == 2
+    assert days_with_any_exercise(day_level, EXERCISE_IDS) == 2
 
 
 def test_meal_log_extraction():
-    meals = extract_meal_log(JAMMY_WEEK_RESPONSES)
+    meals = extract_meal_log(JAMMY_WEEK_RESPONSES, MEAL_IDS)
     assert meals == {
         "월": {"아점": "달걀 2 + 그릭요거트", "저녁": "닭가슴살 100g"},
         "화": {"아점": "두부 200g"},
@@ -126,7 +128,7 @@ def test_meal_log_extraction():
 
 def test_exercised_sequence_across_jammy_history_and_current_week():
     current_day_level = build_day_level(JAMMY_WEEK_RESPONSES)
-    sequence = exercised_sequence(JAMMY_HISTORY, JAMMY_CURRENT_WEEK_ID, current_day_level)
+    sequence = exercised_sequence(JAMMY_HISTORY, JAMMY_CURRENT_WEEK_ID, current_day_level, EXERCISE_IDS)
     # W01(월,화) + W02(월,화,수) + current(월,화,수) — 수요일 조깅 미체크로 끝난다.
     assert sequence == [True, False, True, True, True, True, True, False]
 
@@ -146,7 +148,7 @@ def test_rolling_completion_average_for_slow_jog_over_jammy_history():
 
 def test_category_skip_pattern_across_jammy_history():
     current_day_level = build_day_level(JAMMY_WEEK_RESPONSES)
-    pattern = category_skip_pattern(JAMMY_HISTORY, JAMMY_CURRENT_WEEK_ID, current_day_level)
+    pattern = category_skip_pattern(JAMMY_HISTORY, JAMMY_CURRENT_WEEK_ID, current_day_level, EXERCISE_IDS)
 
     assert pattern["월"]["데드리프트"] == 3  # never done, in any of the 3 weeks
     assert pattern["월"]["슬로우 조깅"] == 0  # done every 월 across all 3 weeks
@@ -193,7 +195,7 @@ def test_render_week_markdown_full_report_for_jammy_week():
         },
     }
 
-    text = render_week_markdown(JAMMY_CURRENT_WEEK_ID, entry)
+    text = render_week_markdown(JAMMY_CURRENT_WEEK_ID, entry, MEAL_IDS)
 
     expected = (
         "# 2026-W03 주간 요약\n"

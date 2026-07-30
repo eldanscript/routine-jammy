@@ -6,16 +6,11 @@ from pathlib import Path
 from exercise_stats import DAY_ORDER
 from nutrition_lookup import NUTRITION_DISCLAIMER
 
-_MEAL_ITEMS = ["아점", "저녁"]
-
-
-def extract_meal_log(responses):
-    """Extract {day: {"아점": note, "저녁": note}} from a responses list, for any
-    response where item is "아점" or "저녁" and checked is true. Skip entries with
-    empty/missing note."""
+def extract_meal_log(responses, meal_ids):
+    """{day: {item_id: note}} 를 낸다. checked=True이고 note가 비어있지 않은 행만."""
     meals = {}
     for response in responses:
-        if response["item"] not in _MEAL_ITEMS or not response["checked"]:
+        if response["item"] not in meal_ids or not response["checked"]:
             continue
         note = response.get("note")
         if not note:
@@ -41,7 +36,7 @@ def save_week(history_dir: Path, week_id: str, entry: dict) -> None:
     )
 
 
-def render_week_markdown(week_id: str, entry: dict) -> str:
+def render_week_markdown(week_id: str, entry: dict, meal_ids) -> str:
     lines = [f"# {week_id} 주간 요약", "", "## 카테고리별 완료율"]
     for category, rate in entry["completionByCategory"].items():
         lines.append(f"- {category}: {round(rate * 100)}%")
@@ -65,7 +60,7 @@ def render_week_markdown(week_id: str, entry: dict) -> str:
             if day not in meals:
                 continue
             day_meals = meals[day]
-            parts = [f"{item}: {day_meals[item]}" for item in _MEAL_ITEMS if item in day_meals]
+            parts = [f"{item}: {day_meals[item]}" for item in meal_ids if item in day_meals]
             lines.append(f"- {day} - " + ", ".join(parts))
     nutrition = entry.get("nutrition")
     if nutrition:
@@ -92,8 +87,8 @@ def render_week_markdown(week_id: str, entry: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def save_week_markdown(history_dir: Path, week_id: str, entry: dict) -> Path:
+def save_week_markdown(history_dir: Path, week_id: str, entry: dict, meal_ids) -> Path:
     history_dir.mkdir(parents=True, exist_ok=True)
     md_path = history_dir / f"{week_id}.md"
-    md_path.write_text(render_week_markdown(week_id, entry), encoding="utf-8")
+    md_path.write_text(render_week_markdown(week_id, entry, meal_ids), encoding="utf-8")
     return md_path

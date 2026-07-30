@@ -1,7 +1,6 @@
 """Pure functions for exercise frequency, streak, and day-of-week pattern analysis
 across a single week's responses and the accumulated multi-week history."""
 
-EXERCISE_CATEGORIES = ["슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크"]
 DAY_ORDER = ["월", "화", "수", "목", "금", "토", "일"]
 
 
@@ -14,17 +13,16 @@ def build_day_level(responses):
     return by_day
 
 
-def _day_has_exercise(items):
-    return any(items.get(category) for category in EXERCISE_CATEGORIES)
+def _day_has_exercise(items, exercise_ids):
+    return any(items.get(item_id) for item_id in exercise_ids)
 
 
-def days_with_any_exercise(day_level):
-    """Count days (out of the days present in day_level) where at least one of
-    EXERCISE_CATEGORIES was checked True."""
-    return sum(1 for items in day_level.values() if _day_has_exercise(items))
+def days_with_any_exercise(day_level, exercise_ids):
+    """day_level에 존재하는 날 중, exercise_ids 가운데 하나라도 True인 날의 수."""
+    return sum(1 for items in day_level.values() if _day_has_exercise(items, exercise_ids))
 
 
-def exercised_sequence(history, current_week_id, current_day_level):
+def exercised_sequence(history, current_week_id, current_day_level, exercise_ids):
     """Build a chronological list of booleans (one per day, oldest first) — whether
     ANY exercise category was checked that day — across all weeks in `history["weeks"]`
     with weekId < current_week_id (sorted ascending), followed by the current week's
@@ -41,10 +39,10 @@ def exercised_sequence(history, current_week_id, current_day_level):
         day_level = history["weeks"][week_id]["byDay"]
         for day in DAY_ORDER:
             if day in day_level:
-                sequence.append(_day_has_exercise(day_level[day]))
+                sequence.append(_day_has_exercise(day_level[day], exercise_ids))
     for day in DAY_ORDER:
         if day in current_day_level:
-            sequence.append(_day_has_exercise(current_day_level[day]))
+            sequence.append(_day_has_exercise(current_day_level[day], exercise_ids))
     return sequence
 
 
@@ -76,14 +74,14 @@ def rolling_completion_average(history, category, current_week_id, current_rate,
     return sum(recent) / len(recent) if recent else None
 
 
-def category_skip_pattern(history, current_week_id, current_day_level):
+def category_skip_pattern(history, current_week_id, current_day_level, exercise_ids):
     """Across ALL weeks with weekId <= current_week_id that have a "byDay" key (including
     the current week via `current_day_level`), count how many times each (day, category)
-    combination in EXERCISE_CATEGORIES was checked False (explicitly present and false,
+    combination in exercise_ids was checked False (explicitly present and false,
     OR simply absent from that day's dict — both count as "not done"). Returns
-    {day: {category: skip_count}} for all 7 DAY_ORDER days and all EXERCISE_CATEGORIES,
+    {day: {category: skip_count}} for all 7 DAY_ORDER days and all exercise_ids,
     even if some counts are 0."""
-    pattern = {day: {category: 0 for category in EXERCISE_CATEGORIES} for day in DAY_ORDER}
+    pattern = {day: {category: 0 for category in exercise_ids} for day in DAY_ORDER}
 
     archived_week_ids = sorted(
         week_id for week_id, entry in history["weeks"].items()
@@ -97,7 +95,7 @@ def category_skip_pattern(history, current_week_id, current_day_level):
             if day not in day_level:
                 continue
             items = day_level[day]
-            for category in EXERCISE_CATEGORIES:
+            for category in exercise_ids:
                 if not items.get(category):
                     pattern[day][category] += 1
 

@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from catalog import load_catalog
+from catalog import item_ids, items_by_group, load_catalog
 from exercise_stats import build_day_level, days_with_any_exercise, exercised_sequence, longest_current_streak
 from history_store import extract_meal_log, load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
@@ -60,6 +60,8 @@ def run(
 
     sheet_data = fetch_week_fn(week_id)
     catalog_items = load_catalog(Path(__file__).resolve().parents[2] / "catalog.json")
+    exercise_ids = item_ids(items_by_group(catalog_items, "exercise"))
+    meal_ids = item_ids(items_by_group(catalog_items, "meal"))
     rates = completion_by_category(sheet_data["responses"], catalog_items)
 
     history = load_history(history_dir)
@@ -73,9 +75,9 @@ def run(
     adjustments = suggest_adjustments(low_categories, catalog_items)
 
     day_level = build_day_level(sheet_data["responses"])
-    meals = extract_meal_log(sheet_data["responses"])
-    exercise_days = days_with_any_exercise(day_level)
-    streak = longest_current_streak(exercised_sequence(history, week_id, day_level))
+    meals = extract_meal_log(sheet_data["responses"], meal_ids)
+    exercise_days = days_with_any_exercise(day_level, exercise_ids)
+    streak = longest_current_streak(exercised_sequence(history, week_id, day_level, exercise_ids))
     nutrition = _weekly_nutrition(meals, estimate_meal_nutrition_fn)
 
     entry = {
@@ -89,7 +91,7 @@ def run(
         "nutrition": nutrition,
     }
     save_week(history_dir, week_id, entry)
-    save_week_markdown(history_dir, week_id, entry)
+    save_week_markdown(history_dir, week_id, entry, meal_ids)
 
     next_week = shift_week(current_week)
     if adjustments:

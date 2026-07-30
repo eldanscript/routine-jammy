@@ -7,6 +7,8 @@ from exercise_stats import (
     rolling_completion_average,
 )
 
+EXERCISE_IDS = ["슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크"]
+
 
 def test_build_day_level_groups_items_by_day():
     responses = [
@@ -25,7 +27,7 @@ def test_days_with_any_exercise_ignores_non_exercise_categories():
         "월": {"간식섭취": True, "바이올린": True},
         "화": {"스쿼트": True},
     }
-    assert days_with_any_exercise(day_level) == 1
+    assert days_with_any_exercise(day_level, EXERCISE_IDS) == 1
 
 
 def test_exercised_sequence_skips_weeks_without_byday():
@@ -37,7 +39,7 @@ def test_exercised_sequence_skips_weeks_without_byday():
     }
     current_day_level = {"월": {"스쿼트": True}}
 
-    assert exercised_sequence(history, "2026-W31", current_day_level) == [True, False, True]
+    assert exercised_sequence(history, "2026-W31", current_day_level, EXERCISE_IDS) == [True, False, True]
 
 
 def test_longest_current_streak_counts_trailing_true_run():
@@ -99,7 +101,7 @@ def test_category_skip_pattern_counts_missing_and_false_as_skips():
         "월": {"스쿼트": False},
     }
 
-    pattern = category_skip_pattern(history, "2026-W30", current_day_level)
+    pattern = category_skip_pattern(history, "2026-W30", current_day_level, EXERCISE_IDS)
 
     assert pattern["월"]["스쿼트"] == 1
     assert pattern["화"]["스쿼트"] == 1

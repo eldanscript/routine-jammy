@@ -8,6 +8,8 @@ from history_store import (
     save_week_markdown,
 )
 
+MEAL_IDS = ["아점", "저녁"]
+
 
 def test_load_history_returns_empty_shape_when_missing(tmp_path):
     assert load_history(tmp_path) == {"weeks": {}}
@@ -35,7 +37,7 @@ def test_save_week_markdown_creates_history_dir_when_missing(tmp_path):
     history_dir = tmp_path / "does-not-exist-yet"
     entry = {"completionByCategory": {"슬로우 조깅": 0.86}, "adjustmentsApplied": [], "reflection": {}}
 
-    path = save_week_markdown(history_dir, "2026-W31", entry)
+    path = save_week_markdown(history_dir, "2026-W31", entry, MEAL_IDS)
 
     assert path.read_text(encoding="utf-8").startswith("# 2026-W31")
 
@@ -48,7 +50,7 @@ def test_extract_meal_log_collects_checked_meal_notes_by_day():
         {"day": "화", "item": "저녁", "checked": True, "note": ""},
         {"day": "수", "item": "스쿼트", "checked": True},
     ]
-    assert extract_meal_log(responses) == {
+    assert extract_meal_log(responses, MEAL_IDS) == {
         "월": {"아점": "계란볶음밥", "저녁": "샐러드"},
     }
 
@@ -59,7 +61,7 @@ def test_save_week_markdown_includes_completion_and_reflection(tmp_path):
         "adjustmentsApplied": ["물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안"],
         "reflection": {"good": "조깅", "blocker": "야근", "change": "물 목표 낮추기"},
     }
-    path = save_week_markdown(tmp_path, "2026-W31", entry)
+    path = save_week_markdown(tmp_path, "2026-W31", entry, MEAL_IDS)
     text = path.read_text(encoding="utf-8")
     assert "슬로우 조깅: 86%" in text
     assert "물 섭취 목표를 낮춰서 부담을 줄이는 걸 제안" in text
@@ -78,7 +80,7 @@ def test_render_week_markdown_includes_meal_log_and_exercise_summary():
         "exerciseDaysThisWeek": 5,
         "exerciseStreak": 3,
     }
-    text = render_week_markdown("2026-W31", entry)
+    text = render_week_markdown("2026-W31", entry, MEAL_IDS)
 
     assert "## 식사 기록" in text
     assert "월 - 아점: 계란볶음밥, 저녁: 샐러드" in text
@@ -101,7 +103,7 @@ def test_render_week_markdown_includes_nutrition_summary_and_recommendations():
             "unmatchedFoodItems": ["희귀채소"],
         },
     }
-    text = render_week_markdown("2026-W31", entry)
+    text = render_week_markdown("2026-W31", entry, MEAL_IDS)
 
     assert "## 영양 요약 (주간 평균)" in text
     assert "1850kcal" in text
@@ -120,7 +122,7 @@ def test_render_week_markdown_omits_optional_sections_when_absent():
         "adjustmentsApplied": [],
         "reflection": {},
     }
-    text = render_week_markdown("2026-W31", entry)
+    text = render_week_markdown("2026-W31", entry, MEAL_IDS)
 
     assert "## 식사 기록" not in text
     assert "## 운동 요약" not in text

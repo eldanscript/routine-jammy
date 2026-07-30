@@ -34,6 +34,15 @@ def load_person(path: Path, catalog_items) -> dict:
     if unknown:
         raise PersonError(f"카탈로그에 없는 아이템: {', '.join(unknown)}")
 
+    seen = set()
+    duplicates = []
+    for item_id in config["items"]:
+        if item_id in seen and item_id not in duplicates:
+            duplicates.append(item_id)
+        seen.add(item_id)
+    if duplicates:
+        raise PersonError(f"중복된 아이템 id: {', '.join(duplicates)}")
+
     config.setdefault("active", True)
     return config
 

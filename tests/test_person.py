@@ -43,6 +43,12 @@ def test_rejects_item_not_in_catalog(tmp_path):
         load_person(path, CATALOG)
 
 
+def test_rejects_duplicate_items(tmp_path):
+    path = write_person(tmp_path, "jammy", items=["스쿼트", "스쿼트"])
+    with pytest.raises(PersonError, match="중복된"):
+        load_person(path, CATALOG)
+
+
 def test_rejects_person_id_mismatching_filename(tmp_path):
     path = write_person(tmp_path, "jammy", personId="other")
     with pytest.raises(PersonError, match="파일명"):

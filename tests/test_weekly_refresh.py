@@ -7,6 +7,21 @@ import weekly_refresh
 from weekly_refresh import commit_and_push, execute, run
 from telegram_notifier import NotifierError
 
+CATALOG_ITEMS = [
+    {"id": "슬로우 조깅", "label": "슬로우 조깅", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "바이올린", "label": "바이올린", "group": "other", "ruleType": "timedPractice",
+     "suggestion": "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안"},
+    {"id": "아점", "label": "아점", "group": "meal", "ruleType": "logging"},
+]
+
+PERSON = {
+    "personId": "jammy",
+    "displayName": "재미",
+    "themeId": "pastel",
+    "active": True,
+    "items": ["슬로우 조깅", "바이올린", "아점"],
+}
+
 
 def _seed_current_week(path):
     path.write_text(
@@ -30,14 +45,31 @@ def _fake_estimate_meal_nutrition(note):
     return fixtures[note]
 
 
+_FULL_CATALOG_ITEMS = [
+    {"id": "슬로우 조깅", "label": "슬로우 조깅", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "스쿼트", "label": "스쿼트", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "아점", "label": "아점", "group": "meal", "ruleType": "logging"},
+    {"id": "저녁", "label": "저녁", "group": "meal", "ruleType": "logging"},
+]
+
+_FULL_PERSON = {
+    "personId": "jammy",
+    "displayName": "재미",
+    "themeId": "pastel",
+    "active": True,
+    "items": ["슬로우 조깅", "스쿼트", "아점", "저녁"],
+}
+
+
 def test_run_writes_history_and_advances_week(tmp_path):
     current_week_path = tmp_path / "current-week.json"
     history_dir = tmp_path / "history"
     history_dir.mkdir()
     _seed_current_week(current_week_path)
 
-    def fake_fetch(week_id):
+    def fake_fetch(week_id, person=None):
         assert week_id == "2026-W31"
+        assert person == "jammy"
         return {
             "responses": [
                 {"day": "월", "item": "스쿼트", "checked": False},
@@ -50,7 +82,7 @@ def test_run_writes_history_and_advances_week(tmp_path):
         }
 
     result = run(
-        current_week_path, history_dir,
+        current_week_path, history_dir, _FULL_PERSON, _FULL_CATALOG_ITEMS,
         fetch_week_fn=fake_fetch,
         estimate_meal_nutrition_fn=_fake_estimate_meal_nutrition,
     )
@@ -136,7 +168,7 @@ def test_execute_sends_success_telegram_message_on_success(monkeypatch, tmp_path
     sent = {}
     monkeypatch.setattr(weekly_refresh, "send_telegram", lambda text: sent.setdefault("text", text))
 
-    result = execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+    result = execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path, PERSON, CATALOG_ITEMS)
 
     assert result == _FAKE_RESULT
     assert "2026-W31" in sent["text"]
@@ -158,7 +190,7 @@ def test_execute_sends_failure_telegram_message_and_reraises_on_run_error(monkey
     monkeypatch.setattr(weekly_refresh, "send_telegram", lambda text: sent.setdefault("text", text))
 
     with pytest.raises(RuntimeError, match="apps script down"):
-        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path, PERSON, CATALOG_ITEMS)
 
     assert "apps script down" in sent["text"]
 
@@ -174,7 +206,7 @@ def test_execute_sends_failure_telegram_message_on_commit_and_push_error(monkeyp
     monkeypatch.setattr(weekly_refresh, "send_telegram", lambda text: sent.setdefault("text", text))
 
     with pytest.raises(RuntimeError, match="git push rejected"):
-        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path, PERSON, CATALOG_ITEMS)
 
     assert "git push rejected" in sent["text"]
 
@@ -191,7 +223,7 @@ def test_execute_notifier_failure_does_not_mask_original_error(monkeypatch, tmp_
     monkeypatch.setattr(weekly_refresh, "send_telegram", failing_notify)
 
     with pytest.raises(RuntimeError, match="apps script down"):
-        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+        execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path, PERSON, CATALOG_ITEMS)
 
     assert "bad token" in capsys.readouterr().err
 
@@ -205,7 +237,7 @@ def test_execute_success_survives_notifier_failure(monkeypatch, tmp_path, capsys
 
     monkeypatch.setattr(weekly_refresh, "send_telegram", failing_notify)
 
-    result = execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path)
+    result = execute(tmp_path / "current-week.json", tmp_path / "history", tmp_path, PERSON, CATALOG_ITEMS)
 
     assert result == _FAKE_RESULT
     assert "bad token" in capsys.readouterr().err
@@ -222,3 +254,62 @@ def test_person_data_dir_is_namespaced():
 
 def test_person_history_dir_is_namespaced():
     assert person_history_dir(Path("/repo"), "jammy") == Path("/repo/history/jammy")
+
+
+def test_run_records_person_id_in_result(tmp_path):
+    current_week_path = tmp_path / "current-week.json"
+    current_week_path.write_text(
+        json.dumps({
+            "weekId": "2026-W31",
+            "startDate": "2026-07-27",
+            "endDate": "2026-08-02",
+            "days": [],
+        }),
+        encoding="utf-8",
+    )
+
+    def fake_fetch(week_id, person=None):
+        return {"responses": [], "reflection": {}}
+
+    result = run(
+        current_week_path,
+        tmp_path / "history",
+        PERSON,
+        CATALOG_ITEMS,
+        fetch_week_fn=fake_fetch,
+        estimate_meal_nutrition_fn=lambda note: {
+            "kcal": 0.0, "protein": 0.0, "fat": 0.0, "carb": 0.0, "unmatchedItems": [],
+        },
+    )
+    assert result["personId"] == "jammy"
+
+
+def test_run_uses_only_the_persons_items(tmp_path):
+    """카탈로그에 있어도 그 사람이 고르지 않은 아이템은 완료율에 나오면 안 된다."""
+    current_week_path = tmp_path / "current-week.json"
+    current_week_path.write_text(
+        json.dumps({
+            "weekId": "2026-W31",
+            "startDate": "2026-07-27",
+            "endDate": "2026-08-02",
+            "days": [],
+        }),
+        encoding="utf-8",
+    )
+    narrow_person = {**PERSON, "items": ["슬로우 조깅"]}
+
+    def fake_fetch(week_id, person=None):
+        return {"responses": [], "reflection": {}}
+
+    result = run(
+        current_week_path,
+        tmp_path / "history",
+        narrow_person,
+        CATALOG_ITEMS,
+        fetch_week_fn=fake_fetch,
+        estimate_meal_nutrition_fn=lambda note: {
+            "kcal": 0.0, "protein": 0.0, "fat": 0.0, "carb": 0.0, "unmatchedItems": [],
+        },
+    )
+    assert set(result["rates"]) == {"슬로우 조깅"}
+    assert "바이올린" not in result["rates"]

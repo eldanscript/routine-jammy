@@ -13,7 +13,14 @@ from exercise_stats import build_day_level, days_with_any_exercise, exercised_se
 from history_store import extract_meal_log, load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
 from nutrition_lookup import NUTRITION_DISCLAIMER, estimate_meal_nutrition, weekly_macro_recommendations
-from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
+from person import load_person, person_items
+from routine_rules import (
+    completion_by_category,
+    find_low_categories,
+    find_low_logging_items,
+    recorded_days_by_item,
+    suggest_adjustments,
+)
 from sheet_client import fetch_week
 from telegram_notifier import send_telegram
 
@@ -60,27 +67,34 @@ def person_history_dir(repo_root: Path, person_id: str) -> Path:
 def run(
     current_week_path: Path,
     history_dir: Path,
+    person: dict,
+    catalog_items: list,
     fetch_week_fn=fetch_week,
     estimate_meal_nutrition_fn=estimate_meal_nutrition,
 ) -> dict:
     current_week = json.loads(current_week_path.read_text(encoding="utf-8"))
     week_id = current_week["weekId"]
+    person_id = person["personId"]
 
-    sheet_data = fetch_week_fn(week_id)
-    catalog_items = load_catalog(Path(__file__).resolve().parents[2] / "catalog.json")
-    exercise_ids = item_ids(items_by_group(catalog_items, "exercise"))
-    meal_ids = item_ids(items_by_group(catalog_items, "meal"))
-    rates = completion_by_category(sheet_data["responses"], catalog_items)
+    selected = person_items(person, catalog_items)
+    exercise_ids = item_ids(items_by_group(selected, "exercise"))
+    meal_ids = item_ids(items_by_group(selected, "meal"))
+
+    sheet_data = fetch_week_fn(week_id, person=person_id)
+    rates = completion_by_category(sheet_data["responses"], selected)
+    recorded = recorded_days_by_item(sheet_data["responses"], selected)
 
     history = load_history(history_dir)
     previous_week_ids = sorted(w for w in history["weeks"] if w < week_id)
-    previous_rates = (
-        history["weeks"][previous_week_ids[-1]]["completionByCategory"]
-        if previous_week_ids
-        else None
+    previous_entry = (
+        history["weeks"][previous_week_ids[-1]] if previous_week_ids else None
     )
+    previous_rates = previous_entry["completionByCategory"] if previous_entry else None
+    previous_recorded = previous_entry.get("recordedDays") if previous_entry else None
+
     low_categories = find_low_categories(rates, previous_rates)
-    adjustments = suggest_adjustments(low_categories, catalog_items)
+    low_categories += find_low_logging_items(recorded, previous_recorded)
+    adjustments = suggest_adjustments(low_categories, selected)
 
     day_level = build_day_level(sheet_data["responses"])
     meals = extract_meal_log(sheet_data["responses"], meal_ids)
@@ -90,6 +104,7 @@ def run(
 
     entry = {
         "completionByCategory": rates,
+        "recordedDays": recorded,
         "adjustmentsApplied": adjustments,
         "reflection": sheet_data.get("reflection", {}),
         "byDay": day_level,
@@ -131,6 +146,7 @@ def run(
     )
 
     return {
+        "personId": person_id,
         "weekId": week_id,
         "rates": rates,
         "adjustments": adjustments,
@@ -197,9 +213,10 @@ def notify(text: str) -> None:
         print(f"Telegram notification failed: {error}", file=sys.stderr)
 
 
-def execute(current_week_path: Path, history_dir: Path, repo_root: Path) -> dict:
+def execute(current_week_path: Path, history_dir: Path, repo_root: Path,
+            person: dict, catalog_items: list) -> dict:
     try:
-        result = run(current_week_path, history_dir)
+        result = run(current_week_path, history_dir, person, catalog_items)
         commit_and_push(repo_root)
     except Exception as error:
         notify(build_failure_message(error))
@@ -210,10 +227,15 @@ def execute(current_week_path: Path, history_dir: Path, repo_root: Path) -> dict
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
+    catalog_items = load_catalog(repo_root / "catalog.json")
+    person = load_person(repo_root / "people" / "jammy.json", catalog_items)
+    person_id = person["personId"]
     result = execute(
-        current_week_path=person_data_dir(repo_root, "jammy") / "current-week.json",
-        history_dir=person_history_dir(repo_root, "jammy"),
+        current_week_path=person_data_dir(repo_root, person_id) / "current-week.json",
+        history_dir=person_history_dir(repo_root, person_id),
         repo_root=repo_root,
+        person=person,
+        catalog_items=catalog_items,
     )
     print(json.dumps(result, ensure_ascii=False))
 

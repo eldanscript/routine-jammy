@@ -9,8 +9,12 @@ def _load(name):
     return json.loads((REPO_ROOT / "docs" / "data" / name).read_text(encoding="utf-8"))
 
 
+def _load_jammy(name):
+    return json.loads((REPO_ROOT / "docs" / "data" / "jammy" / name).read_text(encoding="utf-8"))
+
+
 def test_current_week_has_seven_days_with_required_tasks():
-    week = _load("current-week.json")
+    week = _load_jammy("current-week.json")
     assert len(week["days"]) == 7
     for day in week["days"]:
         assert day["tasks"] == REQUIRED_TASKS
@@ -18,13 +22,13 @@ def test_current_week_has_seven_days_with_required_tasks():
 
 
 def test_current_week_id_matches_year_week_format():
-    week = _load("current-week.json")
+    week = _load_jammy("current-week.json")
     import re
     assert re.match(r"^\d{4}-W\d{2}$", week["weekId"])
 
 
 def test_last_day_has_three_reflection_prompts():
-    week = _load("current-week.json")
+    week = _load_jammy("current-week.json")
     last_day = week["days"][-1]
     assert last_day["day"] == "일"
     assert len(last_day["reflectionPrompts"]) == 3

@@ -209,3 +209,16 @@ def test_execute_success_survives_notifier_failure(monkeypatch, tmp_path, capsys
 
     assert result == _FAKE_RESULT
     assert "bad token" in capsys.readouterr().err
+
+
+from pathlib import Path
+
+from weekly_refresh import person_data_dir, person_history_dir
+
+
+def test_person_data_dir_is_namespaced():
+    assert person_data_dir(Path("/repo"), "jammy") == Path("/repo/docs/data/jammy")
+
+
+def test_person_history_dir_is_namespaced():
+    assert person_history_dir(Path("/repo"), "jammy") == Path("/repo/history/jammy")

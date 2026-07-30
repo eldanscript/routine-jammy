@@ -18,9 +18,9 @@
   async function loadData() {
     const [staticResponse, weekResponse, exerciseStatsResponse, nutritionStatsResponse] = await Promise.all([
       fetch('data/routine-static.json'),
-      fetch('data/current-week.json'),
-      fetch('data/exercise-stats.json'),
-      fetch('data/nutrition-stats.json'),
+      fetch('data/jammy/current-week.json'),
+      fetch('data/jammy/exercise-stats.json'),
+      fetch('data/jammy/nutrition-stats.json'),
     ]);
     staticData = await staticResponse.json();
     weekData = await weekResponse.json();

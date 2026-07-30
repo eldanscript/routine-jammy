@@ -49,6 +49,14 @@ def _weekly_nutrition(meals, estimate_meal_nutrition_fn):
     }
 
 
+def person_data_dir(repo_root: Path, person_id: str) -> Path:
+    return repo_root / "docs" / "data" / person_id
+
+
+def person_history_dir(repo_root: Path, person_id: str) -> Path:
+    return repo_root / "history" / person_id
+
+
 def run(
     current_week_path: Path,
     history_dir: Path,
@@ -145,9 +153,7 @@ def commit_and_push(repo_root: Path) -> None:
     subprocess.run(
         [
             "git", "add", "history",
-            "docs/data/current-week.json",
-            "docs/data/exercise-stats.json",
-            "docs/data/nutrition-stats.json",
+            "docs/data",
         ],
         cwd=repo_root, check=True,
     )
@@ -205,8 +211,8 @@ def execute(current_week_path: Path, history_dir: Path, repo_root: Path) -> dict
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     result = execute(
-        current_week_path=repo_root / "docs" / "data" / "current-week.json",
-        history_dir=repo_root / "history",
+        current_week_path=person_data_dir(repo_root, "jammy") / "current-week.json",
+        history_dir=person_history_dir(repo_root, "jammy"),
         repo_root=repo_root,
     )
     print(json.dumps(result, ensure_ascii=False))

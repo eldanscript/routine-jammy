@@ -2,6 +2,8 @@ from catalog import load_catalog
 from routine_rules import (
     completion_by_category,
     find_low_categories,
+    find_low_logging_items,
+    recorded_days_by_item,
     suggest_adjustments,
 )
 
@@ -58,3 +60,43 @@ def test_suggest_adjustments_maps_items_with_suggestion_only():
 
 def test_suggest_adjustments_ignores_unknown_id():
     assert suggest_adjustments(["없는아이템"], ITEMS) == []
+
+
+def test_recorded_days_counts_days_with_nonempty_note():
+    responses = [
+        {"day": "월", "item": "아점", "checked": True, "note": "달걀"},
+        {"day": "화", "item": "아점", "checked": True, "note": "두부"},
+        {"day": "수", "item": "아점", "checked": True, "note": ""},
+        {"day": "목", "item": "아점", "checked": False, "note": "무시됨"},
+    ]
+    assert recorded_days_by_item(responses, ITEMS) == {"아점": 2}
+
+
+def test_recorded_days_counts_a_day_once_even_with_duplicate_rows():
+    responses = [
+        {"day": "월", "item": "아점", "checked": True, "note": "달걀"},
+        {"day": "월", "item": "아점", "checked": True, "note": "달걀 수정"},
+    ]
+    assert recorded_days_by_item(responses, ITEMS) == {"아점": 1}
+
+
+def test_recorded_days_ignores_non_logging_items():
+    responses = [{"day": "월", "item": "스쿼트", "checked": True, "note": "메모"}]
+    assert recorded_days_by_item(responses, ITEMS) == {"아점": 0}
+
+
+def test_logging_low_requires_both_weeks_under_threshold():
+    assert find_low_logging_items({"아점": 2}, {"아점": 1}) == ["아점"]
+
+
+def test_logging_one_good_week_breaks_the_streak():
+    assert find_low_logging_items({"아점": 2}, {"아점": 3}) == []
+    assert find_low_logging_items({"아점": 5}, {"아점": 1}) == []
+
+
+def test_logging_no_history_does_not_trigger():
+    assert find_low_logging_items({"아점": 0}, None) == []
+
+
+def test_logging_threshold_is_exclusive_at_three():
+    assert find_low_logging_items({"아점": 3}, {"아점": 3}) == []

@@ -46,3 +46,38 @@ def suggest_adjustments(low_ids, items):
         item["id"]: item["suggestion"] for item in items if item.get("suggestion")
     }
     return [suggestions[item_id] for item_id in low_ids if item_id in suggestions]
+
+
+LOGGING_MIN_DAYS = 3
+
+
+def recorded_days_by_item(responses, items):
+    """ruleType이 logging인 아이템에 대해, 비어있지 않은 기록이 있는 **날의 수**를 센다.
+
+    같은 날 같은 아이템이 여러 행으로 들어와도 하루로 센다.
+    """
+    logging_ids = {item["id"] for item in items if item["ruleType"] == "logging"}
+    days_seen = {item_id: set() for item_id in logging_ids}
+    for response in responses:
+        item_id = response["item"]
+        if item_id not in logging_ids or not response["checked"]:
+            continue
+        if not response.get("note"):
+            continue
+        days_seen[item_id].add(response["day"])
+    return {item_id: len(days) for item_id, days in days_seen.items()}
+
+
+def find_low_logging_items(current_counts, previous_counts, threshold=LOGGING_MIN_DAYS):
+    """이번 주와 지난 주가 **각각** threshold일 미만인 logging 아이템 id를 낸다.
+
+    2주 합산이 아니다 — 한 주라도 threshold일 이상이면 연속이 끊긴다.
+    """
+    if not previous_counts:
+        return []
+    low = []
+    for item_id, count in current_counts.items():
+        previous_count = previous_counts.get(item_id)
+        if count < threshold and previous_count is not None and previous_count < threshold:
+            low.append(item_id)
+    return low

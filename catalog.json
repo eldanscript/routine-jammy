@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {"id": "슬로우 조깅", "label": "슬로우 조깅", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "스쿼트", "label": "스쿼트", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "데드리프트", "label": "데드리프트", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "런지", "label": "런지", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "플랭크", "label": "플랭크", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "간식섭취", "label": "간식섭취", "group": "other", "ruleType": "binaryCheck",
+     "suggestion": "간식섭취 체크 기준을 더 쉽게 낮추는 걸 제안"},
+    {"id": "바이올린", "label": "바이올린", "group": "other", "ruleType": "timedPractice",
+     "suggestion": "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안"},
+    {"id": "아점", "label": "아점", "group": "meal", "ruleType": "logging"},
+    {"id": "저녁", "label": "저녁", "group": "meal", "ruleType": "logging"}
+  ]
+}

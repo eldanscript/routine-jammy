@@ -28,11 +28,11 @@ python3 src/routine-jammy/weekly_refresh.py
 ```
 
 `weekly_refresh.main()`이 하는 일 (자세한 구현은 `src/routine-jammy/weekly_refresh.py`):
-1. `docs/data/current-week.json`의 현재 주차를 읽는다.
+1. `docs/data/jammy/current-week.json`의 현재 주차를 읽는다.
 2. Apps Script GET으로 그 주의 체크인 데이터를 가져온다.
 3. 카테고리별 완료율을 계산하고, 2주 연속 50% 미만인 항목이 있으면 보수적인 조정을 제안한다.
 4. `history/data.json`과 `history/<weekId>.md`에 이번 주 요약을 기록한다.
-5. `docs/data/current-week.json`을 다음 주차로 갱신한다 (날짜만 +7일, 조정 사항이 있으면 `appliedAdjustments`로 표시).
+5. `docs/data/jammy/current-week.json`을 다음 주차로 갱신한다 (날짜만 +7일, 조정 사항이 있으면 `appliedAdjustments`로 표시).
 6. 변경사항을 커밋하고 `origin/main`에 push한다 — GitHub Pages가 자동 재배포된다.
 7. 성공/실패 여부와 관계없이 Telegram으로 요약/실패 메시지를 보낸다 (`execute()` 참고).
 
@@ -57,10 +57,10 @@ python3 src/routine-jammy/weekly_refresh.py
 
 - **`run()` 내부에서 실패** (예: Apps Script가 응답하지 않는 `SheetClientError`, 배포가 아직
   안 된 상태): `commit_and_push()`는 아예 호출되지 않으므로 아무 것도 바뀌지 않았다.
-  `docs/data/current-week.json`, `history/`는 모두 이전 상태 그대로이고 이전 주 루틴이 그대로
+  `docs/data/jammy/current-week.json`, `history/`는 모두 이전 상태 그대로이고 이전 주 루틴이 그대로
   유지된다. 원인을 해결한 뒤 스크립트를 그냥 재실행하면 된다.
 - **`commit_and_push()` 내부에서 `git push`가 실패**: `run()`은 이미 성공해서
-  `docs/data/current-week.json`을 다음 주차로 갱신해 디스크에 썼고, `commit_and_push()`는
+  `docs/data/jammy/current-week.json`을 다음 주차로 갱신해 디스크에 썼고, `commit_and_push()`는
   add → commit → push 순서라 **로컬 커밋까지는 이미 만들어진 상태**다 — push만 안 됐을 뿐
   변경 사항 자체는 이미 반영되어 있다. 이 경우 스크립트를 처음부터 재실행하면 이번 주
   데이터를 또 가져와 중복 처리하게 되므로, 원인(네트워크/인증 등)을 먼저 확인한 뒤

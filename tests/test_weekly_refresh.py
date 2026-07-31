@@ -1,11 +1,16 @@
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
 import weekly_refresh
+from catalog import load_catalog
+from person import load_person
 from weekly_refresh import commit_and_push, execute, run
 from telegram_notifier import NotifierError
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 CATALOG_ITEMS = [
     {"id": "슬로우 조깅", "label": "슬로우 조깅", "group": "exercise", "ruleType": "binaryCheck"},
@@ -243,8 +248,6 @@ def test_execute_success_survives_notifier_failure(monkeypatch, tmp_path, capsys
     assert "bad token" in capsys.readouterr().err
 
 
-from pathlib import Path
-
 from weekly_refresh import person_data_dir, person_history_dir
 
 
@@ -313,3 +316,56 @@ def test_run_uses_only_the_persons_items(tmp_path):
     )
     assert set(result["rates"]) == {"슬로우 조깅"}
     assert "바이올린" not in result["rates"]
+
+
+def test_run_with_real_catalog_and_person_preserves_category_order(tmp_path):
+    """C-1 가드: 리포트의 카테고리 순서는 people/jammy.json의 items 순서 →
+    person_items() → completion_by_category() → render_week_markdown()으로
+    흘러가며, 지금은 사람이 눈으로 diff를 읽어 우연히 옛 하드코딩 순서와 같음을
+    확인했을 뿐 자동으로 지켜주는 테스트가 없었다. 이 테스트가 그 순서를
+    고정한다 — 나중에 누군가 people/jammy.json의 items 배열 순서를 손으로
+    바꾸면 이 테스트가 깨져야 정상이다.
+    """
+    catalog_items = load_catalog(REPO_ROOT / "catalog.json")
+    person = load_person(REPO_ROOT / "people" / "jammy.json", catalog_items)
+
+    current_week_path = tmp_path / "current-week.json"
+    current_week_path.write_text(
+        json.dumps({
+            "weekId": "2026-W31",
+            "startDate": "2026-07-27",
+            "endDate": "2026-08-02",
+            "days": [],
+        }),
+        encoding="utf-8",
+    )
+    history_dir = tmp_path / "history"
+
+    def fake_fetch(week_id, person=None):
+        assert person == "jammy"
+        return {
+            "responses": [
+                {"day": "월", "item": "슬로우 조깅", "checked": True},
+                {"day": "월", "item": "스쿼트", "checked": True},
+            ],
+            "reflection": {},
+        }
+
+    result = run(
+        current_week_path,
+        history_dir,
+        person,
+        catalog_items,
+        fetch_week_fn=fake_fetch,
+        estimate_meal_nutrition_fn=lambda note: {
+            "kcal": 0.0, "protein": 0.0, "fat": 0.0, "carb": 0.0, "unmatchedItems": [],
+        },
+    )
+
+    assert list(result["rates"].keys()) == [
+        "슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크", "간식섭취", "바이올린",
+    ]
+
+    history = json.loads((history_dir / "data.json").read_text(encoding="utf-8"))
+    entry = history["weeks"]["2026-W31"]
+    assert list(entry["completionByCategory"].keys()) == list(result["rates"].keys())

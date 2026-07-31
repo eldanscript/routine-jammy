@@ -52,11 +52,28 @@ Supabase는 이 문제를 정면으로 해결한 백엔드다: publishable 키�
 
 이것이 이 설계의 존재 이유다. publishable 키가 공개 저장소에 있어도:
 - SELECT 불가 (누구도 데이터를 읽지 못함)
-- UPDATE/DELETE 불가 (누구도 남의 기록을 변조하지 못함)
-- INSERT만 가능
+- UPDATE/DELETE 불가
+- **INSERT는 유효한 사람별 쓰기 토큰이 있을 때만, 그 토큰이 가리키는 person_id로만** 가능
 
-수용하는 잔여 위험: **모르는 사람이 쓰레기 행을 삽입할 수 있다.** 크기·형식 제약(§S-3)으로
-피해를 제한하고, 알 수 없는 `person_id`의 행은 크론이 필터링해 자연히 무시한다.
+> **초안의 오류와 정정 (설계 리뷰에서 발견)**
+>
+> 초안은 "append-only라 UPDATE 권한이 필요 없으니 아무도 남의 기록을 못 고친다"고 했으나
+> **거짓이었다.** INSERT 정책이 `with check (true)`이면 누구나 임의의 `person_id`로 행을
+> 넣을 수 있고, 읽기가 "최신 승자"이므로 **그 행이 곧 권위 있는 값이 된다.** UPDATE를 막았지만
+> 삽입+최신승자로 같은 능력이 재현된 것이다 — 동사만 바뀌고 권한은 그대로였다.
+>
+> 실제 피해 경로가 있었다: `person_id`는 공개된 `people/*.json`에 있고, `item='회고'` 행의
+> payload는 `render_week_markdown`을 거쳐 **`history/`에 커밋되어 공개 저장소에 push되고
+> 텔레그램 리포트로도 나간다.** 즉 익명의 누구나 대상자 이름으로 임의 텍스트를 공개
+> 저장소에 남길 수 있었다.
+>
+> 정정: INSERT를 **사람별 쓰기 토큰**에 묶는다(§S-2.1). 정책은
+> `with check (person_id = public.person_for_token())`이다.
+
+수용하는 잔여 위험: **유효한 토큰을 가진 사람은 자기 person_id로 무엇이든 넣을 수 있다.**
+크기·형식 제약(§S-3)이 개별 행을 좁히지만 행 수 자체는 제한하지 않는다. 토큰 없는 외부인은
+삽입 자체가 불가하므로, 이 위험은 링크를 받은 당사자(또는 그 링크를 얻은 사람)로 한정된다.
+링크가 유출되면 해당 토큰만 `revoked_at`을 채워 즉시 무효화한다.
 
 ### C-3. 새 의존성을 추가하지 않는다
 
@@ -123,9 +140,41 @@ personId로 필터하므로 모르는 값의 행은 자동으로 무시된다.
 파이썬에 있으면 나머지처럼 단위 테스트가 붙으며, **뷰에 RLS를 거는 것은 알려진 함정**이다
 (`security_invoker` 누락 시 우회 가능).
 
-### S-3. 제약 — 공개 INSERT를 감안한 방어
+### S-2.1 사람별 쓰기 토큰 — INSERT를 신원에 묶는다
 
-INSERT가 열려 있으므로 DB 레벨에서 쓰레기의 크기와 형식을 제한한다:
+C-2의 정정에 따라, INSERT는 **유효한 토큰이 가리키는 person_id로만** 허용한다.
+
+**`person_write_tokens(token, person_id, created_at, revoked_at)`**
+- `anon`에 어떤 권한도 주지 않는다 — 토큰 목록을 열거할 수 없어야 한다
+- RLS를 켜되 정책을 만들지 않는다(전면 차단)
+
+**`public.person_for_token()`** — `security definer` 함수
+- 요청 헤더 `x-routine-token`을 person_id로 해석한다
+- `security definer`라 함수 소유자 권한으로 실행되므로, `anon`이 토큰 표를 직접 읽지 않고도
+  자기 토큰을 해석할 수 있다
+- `set search_path = public, pg_temp`로 고정한다 — `security definer` 함수의 표준 주의사항
+  (search_path 조작을 통한 하이재킹 방지)
+- 토큰이 없거나 폐기됐으면 `NULL`을 낸다
+
+**정책**: `with check (person_id = public.person_for_token())`
+- 토큰이 없으면 `person_id = NULL`이 되어 참이 아니므로 **삽입이 거부된다**
+- 즉 **토큰 없는 외부인은 아무것도 넣을 수 없다**
+
+**토큰의 전달 경로**: 사람별 링크에 담는다 — `?person=jammy&t=<토큰>`.
+저장소에 **커밋하지 않는다.** rainny가 링크로 직접 전달한다. 프론트는 `person`으로 정적 파일
+경로를 만들고, `t`를 `x-routine-token` 헤더로 실어 보낸다.
+
+이는 기존 신뢰 모델("고유 링크를 아는 사람 = 그 사람")과 정확히 같은 수준이다. 한 사람의
+링크가 유출돼도 **그 사람의 쓰기 권한만** 넘어가며, 그 토큰만 `revoked_at`을 채워 즉시
+무효화한다.
+
+**부수 효과 — 용량 고갈 DoS도 함께 막힌다.** 토큰이 없으면 삽입 자체가 불가하므로, 익명
+공격자가 무료 티어 500MB를 채워 서비스를 마비시키는 경로가 사라진다.
+
+### S-3. 제약 — 토큰 보유자의 실수·남용을 좁힌다
+
+토큰 없는 외부인은 §S-2.1에서 이미 막힌다. 아래 제약은 **유효한 토큰을 가진 쪽**의 실수나
+남용 범위를 좁히는 두 번째 겹이다:
 
 - `person_id`, `week_id`, `day`, `item`: NOT NULL + 길이 상한 (각 64자)
 - `payload`: `pg_column_size(payload) <= 4096` CHECK — 거대 JSON 삽입 차단
@@ -137,36 +186,61 @@ INSERT가 열려 있으므로 DB 레벨에서 쓰레기의 크기와 형식을 �
 
 **인덱스**: `(person_id, week_id)` — 크론의 유일한 조회 패턴.
 
-### S-4. RLS — 이 설계의 유일한 보안 경계
+### S-4. RLS와 권한 — 두 겹의 방어
 
-`checkins`에 RLS를 **활성화**하고, **INSERT 정책만** 만든다.
+두 테이블 모두 RLS를 **활성화**하고, `checkins`에 **INSERT 정책 하나만** 만든다.
 
 ```sql
-alter table public.checkins enable row level security;
+alter table public.checkins            enable row level security;
+alter table public.person_write_tokens enable row level security;
 
-create policy checkins_insert_anon
+create policy checkins_insert_own
   on public.checkins for insert
   to anon
-  with check (true);
+  with check (person_id = public.person_for_token());
 -- SELECT / UPDATE / DELETE 정책은 만들지 않는다 → Postgres 기본 거부
+-- person_write_tokens에는 어떤 정책도 만들지 않는다 → anon 전면 차단
 ```
 
-- publishable 키(`sb_publishable_*`, `anon` 역할): INSERT만 통과
+- publishable 키(`sb_publishable_*`, `anon` 역할): 유효 토큰이 있을 때만 자기 person_id로 INSERT
 - secret 키(`sb_secret_*`): RLS를 우회 → 크론이 전부 읽는다. **`.env`에만 두고 절대 커밋하지 않는다**
+
+**권한(GRANT)은 RLS와 독립된 두 번째 방어선이다.** Supabase는 `public` 스키마의 새 테이블에
+기본 권한을 넓게 주는 설정이 있을 수 있으므로, 먼저 전부 회수한 뒤 필요한 것만 다시 준다.
+RLS가 잘못 설정돼도 GRANT가 없으면 SELECT는 막힌다 — **두 장치가 동시에 실패해야 데이터가
+샌다.**
+
+**INSERT는 컬럼 단위로 준다** — `id`와 `created_at`은 주지 않는다. `created_at`이 "최신 승자"
+판정 기준이므로 클라이언트가 이 값을 지정할 수 있으면 시각을 위조해 남의 최신 기록을 덮어쓴
+것처럼 만들 수 있다. 권한이 없으면 항상 서버의 `default now()`가 쓰인다.
 
 > **유일한 사고 지점은 `enable row level security`를 빠뜨리는 것이다.** 정책을 안 만든 것이
 > 곧 차단이므로, RLS 자체가 꺼져 있으면 공개 키로 전부 읽힌다. §S-6의 검증이 이걸 잡는다.
 
+**구현 주의 — `Prefer: return=minimal`**: `anon`에 SELECT 권한이 없으므로, 클라이언트가 삽입
+결과를 돌려받으려 하면(`Prefer: return=representation`, supabase-js의 `.select()` 등)
+`RETURNING` 절이 거부되어 **INSERT 전체가 실패한다.** 데이터가 새는 게 아니라 안전한 실패지만,
+"Supabase가 고장났다"로 오인하기 쉬운 함정이라 `docs/app.js`는 반드시 `return=minimal`로
+보낸다(PostgREST 기본값이지만 명시한다).
+
 ### S-5. 나중에 읽기를 여는 경로 (지금은 만들지 않음)
 
-브라우저가 자기 데이터를 되읽어야 할 때(기기 변경·다기기 동기화):
+브라우저가 자기 데이터를 되읽어야 할 때(기기 변경·다기기 동기화) 필요한 것은 **정책 한 줄뿐**
+이다. §S-2.1에서 토큰 체계가 이미 들어갔기 때문이다:
 
-1. `person_tokens(person_id, token_hash, created_at)` 테이블 추가
-2. 사람별 URL에 무작위 토큰 부여
-3. 토큰을 검증하는 "자기 행만 SELECT" 정책 추가
+```sql
+create policy checkins_select_own
+  on public.checkins for select
+  to anon
+  using (person_id = public.person_for_token());
 
-**지금 스키마에 이미 `person_id`가 있으므로 데이터 마이그레이션 없이 정책·테이블만 추가하면
-된다.**
+grant select on table public.checkins to anon;   -- GRANT도 함께 열어야 한다(두 겹이므로)
+```
+
+테이블 추가도, 데이터 마이그레이션도, URL 형식 변경도 없다 — 토큰은 이미 링크에 실려 있다.
+
+**단 그때 함께 검토할 것**: 읽기를 열면 §S-4의 "GRANT가 없어 SELECT가 막힌다"는 두 번째
+방어선이 사라지고 RLS 단독 방어가 된다. 그리고 `Prefer: return=minimal` 제약도 풀린다.
 
 ### S-6. 검증 — RLS가 실제로 막는지 확인한다
 
@@ -174,13 +248,20 @@ RLS가 유일한 보안 경계이므로, "정책을 안 만들어서 막힌다"�
 믿지 않는다. 네트워크가 필요하므로 기본 스위트와 분리해 표시하고(예: `-m network`), 최초 설정
 직후와 스키마 변경 시 실행한다.
 
-| 검사 | 기대 |
-|---|---|
-| publishable 키로 SELECT | **거부** |
-| publishable 키로 UPDATE | **거부** |
-| publishable 키로 DELETE | **거부** |
-| publishable 키로 INSERT | 성공 |
-| secret 키로 SELECT | 성공 |
+| # | 검사 | 기대 | 무엇을 지키는가 |
+|---|---|---|---|
+| 1 | publishable 키로 SELECT | **거부** | 데이터 비공개 |
+| 2 | publishable 키로 UPDATE | **거부** | 변조 방지 |
+| 3 | publishable 키로 DELETE | **거부** | 삭제 방지 |
+| 4 | publishable 키 + **토큰 없이** INSERT | **거부** | 익명 삽입·DoS 차단 |
+| 5 | publishable 키 + **틀린 토큰**으로 INSERT | **거부** | 토큰 검증이 실제로 동작 |
+| 6 | publishable 키 + **jammy 토큰**으로 `person_id='jammy'` INSERT | 성공 | 정상 경로 |
+| 7 | publishable 키 + **jammy 토큰**으로 `person_id='other'` INSERT | **거부** | **타인 사칭 차단(C-2의 핵심)** |
+| 8 | publishable 키로 `person_write_tokens` SELECT | **거부** | 토큰 열거 차단 |
+| 9 | secret 키로 SELECT | 성공 | 크론이 읽을 수 있음 |
+
+**7번이 이번 정정의 핵심 검사다.** 초안 설계는 이 케이스에서 성공했을 것이고, 그게 곧 C-2가
+거짓이었다는 뜻이다.
 
 **추가로 배포 후 왕복 확인**: 지금 앱은 config가 비어 조용히 localStorage 전용으로 돌고 있다.
 연결 후 실제 체크인이 DB에 도달하는지 눈으로 확인한다(설정 화면의 "동기화 서버 연결" 표시가
@@ -212,12 +293,12 @@ RLS가 유일한 보안 경계이므로, "정책을 안 만들어서 막힌다"�
 |---|---|
 | `src/routine-jammy/sheet_client.py` | 삭제 → `supabase_client.py` 신규 |
 | `src/routine-jammy/weekly_refresh.py` | import 한 줄 + 호출부 |
-| `docs/app.js` | POST 대상을 PostgREST로, `note`/`reflection`을 `payload`로 감싸기 |
+| `docs/app.js` | POST 대상을 PostgREST로, `note`/`reflection`을 `payload`로 감싸기, `x-routine-token` 헤더 전송, **`Prefer: return=minimal` 필수**(아래) |
 | `docs/config.js` | Supabase URL + publishable 키 (공개 전제 키라 커밋 안전) |
 | `apps-script/` 전체 | **삭제** (`Code.gs`, `migrate-person-column.gs`, `README.md`) |
 | `specs/plans/2026-07-31-sheet-migration-runbook.md` | **삭제** (마이그레이션할 시트가 없었음) |
 | `.env` | `ROUTINE_APPS_SCRIPT_URL`/`ROUTINE_SHARED_SECRET` → `SUPABASE_URL`/`SUPABASE_SECRET_KEY` |
-| `supabase/schema.sql` (신규) | 테이블·인덱스·CHECK·RLS·INSERT 정책 |
+| `supabase/schema.sql` (신규) | `checkins` + `person_write_tokens` 테이블, `person_for_token()` 함수, 인덱스·CHECK·컬럼단위 GRANT·RLS·토큰 바인딩 INSERT 정책, 토큰 발급 |
 | `tests/test_supabase_client.py` (신규) | 중복제거·payload 펼치기 단위 테스트 (네트워크 없음) |
 | `tests/test_rls_live.py` (신규) | §S-6 RLS 검증 (네트워크 필요, 분리 표시) |
 | `src/routine-jammy/health_check.py` (신규) | §S-7 일일 health check (별도 크론 엔트리) |
@@ -251,7 +332,8 @@ payload를 먼저 펼치고 코어 필드를 나중에 씌우는 순서가 중�
 |---|---|
 | OQ-1 | **해결** — 무료 티어 일시정지는 실질 리스크였다(주 1회 크론은 "매일 몇 건" 기준의 경계선이고, 정지 상태에서 크론이 돌면 주간 리프레시가 실패한다). §S-7의 일일 health check로 대응한다. 남은 확인: 실제 운영에서 정지가 발생하지 않는지 첫 2~3주 관찰 |
 | OQ-2 | **해결** — 2025년 11월부터 **신규 프로젝트에는 레거시 키가 발급되지 않는다.** 새로 만들면 `sb_publishable_*`/`sb_secret_*`만 받으므로 선택의 여지가 없다. 새 방식은 개별 폐기가 가능하고(옛 `service_role`은 교체 시 전 세션 무효화), secret 키가 브라우저에서 오면 게이트웨이가 거부해 오용을 구조적으로 막는다 |
-| **OQ-3** | **미해결** — 쓰레기 INSERT에 대한 추가 완화(사람별 토큰 컬럼, rate limit)를 지금 넣을지, 실제 남용이 관측된 뒤에 넣을지. 현재는 DB 제약(크기·형식)과 "모르는 person_id는 크론이 무시" 두 겹만 있다 |
+| OQ-3 | **해결** — 설계 리뷰에서 `with check (true)`가 변조를 전혀 막지 못한다는 것이 드러나(C-2 정정 참고), 사람별 쓰기 토큰을 **지금** 넣기로 했다(§S-2.1). 익명 삽입이 불가해지면서 용량 고갈 DoS 경로도 함께 닫혔다 |
+| **OQ-4** | **신규·미해결** — 토큰 보유자가 자기 person_id로 넣을 수 있는 **행 수**에는 제한이 없다. 실수든 고의든 대량 삽입이 가능하다. 지금 제한을 걸지, 실제 문제가 관측된 뒤에 걸지 |
 
 ## 참고
 

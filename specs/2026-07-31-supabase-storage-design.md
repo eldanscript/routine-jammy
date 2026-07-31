@@ -186,6 +186,26 @@ RLS가 유일한 보안 경계이므로, "정책을 안 만들어서 막힌다"�
 연결 후 실제 체크인이 DB에 도달하는지 눈으로 확인한다(설정 화면의 "동기화 서버 연결" 표시가
 "연결됨"으로 바뀌는지 포함).
 
+### S-7. 무료 티어 일시정지 방지 — 일일 health check
+
+**무료 플랜은 7일간 DB 활동이 부족하면 프로젝트를 일시정지한다.** 정지되면 읽기·쓰기·연결이
+전부 막히고(데이터는 디스크에 보존), 대시보드에서 수동 복구해야 한다. 90일 넘게 방치하면
+원클릭 복구가 막힌다.
+
+**주간 크론만으로는 부족하다.** 기준이 "매일 몇 건의 요청" 수준인데 주간 리프레시는 7일에 한
+번이라 정확히 경계선에 걸리고, 판정 시점과 어긋나면 정지될 수 있다. 그리고 **정지된 상태에서
+크론이 돌면 주간 리프레시 자체가 실패한다** — 가장 필요한 순간에 죽는 구조다.
+
+실사용이 있으면 자연히 해결된다(배우자가 매일 체크인하면 그게 곧 DB 활동이다). 문제는 며칠
+쓰지 않는 기간이므로, **매일 도는 가벼운 health check**를 별도 크론으로 둔다.
+
+- 하는 일: `checkins`에 대한 최소 비용 쿼리 1회(예: `select id limit 1`). secret 키로 호출한다.
+- 빈도: 매일 1회. 주간 리프레시와 **별도 크론 엔트리**로 둔다(주간 작업 실패가 health check를
+  같이 죽이면 안 된다).
+- 실패 시: 조용히 넘기지 않고 텔레그램으로 알린다. health check 실패는 "이미 정지됐거나
+  곧 정지된다"는 신호다.
+- 정지된 상태를 감지하면 그 사실을 명시적으로 알린다 — 수동 복구가 필요하기 때문이다.
+
 ## 영향 범위
 
 | 파일/영역 | 변경 |
@@ -200,6 +220,7 @@ RLS가 유일한 보안 경계이므로, "정책을 안 만들어서 막힌다"�
 | `supabase/schema.sql` (신규) | 테이블·인덱스·CHECK·RLS·INSERT 정책 |
 | `tests/test_supabase_client.py` (신규) | 중복제거·payload 펼치기 단위 테스트 (네트워크 없음) |
 | `tests/test_rls_live.py` (신규) | §S-6 RLS 검증 (네트워크 필요, 분리 표시) |
+| `src/routine-jammy/health_check.py` (신규) | §S-7 일일 health check (별도 크론 엔트리) |
 | 최초 설정 안내문 (신규) | Supabase 프로젝트 생성 → SQL 실행 → 키 배치 |
 | 위 C-1의 8개 모듈 + `test_characterization.py` | **변경 없음** |
 
@@ -228,12 +249,16 @@ payload를 먼저 펼치고 코어 필드를 나중에 씌우는 순서가 중�
 
 | # | 내용 |
 |---|---|
-| OQ-1 | Supabase 프로젝트를 아직 만들지 않았다. 무료 티어는 **1주일 미사용 시 일시정지**되는데, 주 1회 크론이 도므로 문제없을 것으로 보이나 실제 동작 확인 필요 |
-| OQ-2 | 기존 anon/service_role 키는 2026년 말 폐기 예정이고 `sb_publishable_*`/`sb_secret_*`로 대체 중이다. 신규 프로젝트 생성 시 어느 쪽이 기본으로 발급되는지 확인 후 그에 맞춰 문서화 |
-| OQ-3 | 쓰레기 INSERT에 대한 추가 완화(사람별 토큰 컬럼, rate limit)를 지금 넣을지, 실제 남용이 관측된 뒤에 넣을지 |
+| OQ-1 | **해결** — 무료 티어 일시정지는 실질 리스크였다(주 1회 크론은 "매일 몇 건" 기준의 경계선이고, 정지 상태에서 크론이 돌면 주간 리프레시가 실패한다). §S-7의 일일 health check로 대응한다. 남은 확인: 실제 운영에서 정지가 발생하지 않는지 첫 2~3주 관찰 |
+| OQ-2 | **해결** — 2025년 11월부터 **신규 프로젝트에는 레거시 키가 발급되지 않는다.** 새로 만들면 `sb_publishable_*`/`sb_secret_*`만 받으므로 선택의 여지가 없다. 새 방식은 개별 폐기가 가능하고(옛 `service_role`은 교체 시 전 세션 무효화), secret 키가 브라우저에서 오면 게이트웨이가 거부해 오용을 구조적으로 막는다 |
+| **OQ-3** | **미해결** — 쓰레기 INSERT에 대한 추가 완화(사람별 토큰 컬럼, rate limit)를 지금 넣을지, 실제 남용이 관측된 뒤에 넣을지. 현재는 DB 제약(크기·형식)과 "모르는 person_id는 크론이 무시" 두 겹만 있다 |
 
 ## 참고
 
 - [Understanding API keys — Supabase Docs](https://supabase.com/docs/guides/getting-started/api-keys)
+- [Migrating to publishable and secret API keys — Supabase Docs](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys)
+- [Upcoming changes to Supabase API Keys — Changelog](https://supabase.com/changelog/29260-upcoming-changes-to-supabase-api-keys)
+- [Project Pausing — Supabase Docs](https://supabase.com/docs/guides/platform/free-project-pausing)
 - [Supabase Security: Exposed Anon Keys, RLS, and Misconfigurations](https://www.stingrai.io/blog/supabase-powerful-but-one-misconfiguration-away-from-disaster)
+- [AI Agents Know About Supabase. They Don't Always Use It Right. — Supabase Blog](https://supabase.com/blog/supabase-agent-skills)
 - [Supabase Free Tier Guide](https://infrafree.dev/en-us/provider/supabase)

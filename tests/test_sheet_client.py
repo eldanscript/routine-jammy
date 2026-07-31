@@ -85,3 +85,26 @@ def test_fetch_week_omits_person_when_not_given(monkeypatch):
 
     sheet_client.fetch_week("2026-W31")
     assert "person" not in captured["params"]
+    assert all(v not in (None, "") for v in captured["params"].values())
+
+
+def test_fetch_week_omits_person_when_falsy(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"responses": []}
+
+    def fake_get(url, params=None, timeout=None):
+        captured["params"] = params
+        return FakeResponse()
+
+    monkeypatch.setenv("ROUTINE_APPS_SCRIPT_URL", "https://example.test/exec")
+    monkeypatch.setenv("ROUTINE_SHARED_SECRET", "s3cret")
+    monkeypatch.setattr("sheet_client.requests.get", fake_get)
+
+    sheet_client.fetch_week("2026-W31", person="")
+    assert "person" not in captured["params"]
+    assert all(v not in (None, "") for v in captured["params"].values())

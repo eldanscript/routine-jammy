@@ -733,7 +733,8 @@ git rm specs/plans/2026-07-31-sheet-migration-runbook.md
 - [ ] **Step 3: 전체 스위트 — 삭제로 깨진 곳이 있는지**
 
 Run: `python3 -m pytest tests/ -q`
-Expected: 실패 0. `test_sheet_client.py`가 사라져 개수는 줄지만, **다른 실패가 나면 안 된다.**
+Expected: 실패 0. `test_sheet_client.py`에 5개가 있었으므로 총 개수가 **정확히 5 줄어든다.**
+5보다 많이 줄었다면 다른 것을 망가뜨린 것이다 — 멈추고 원인을 찾을 것.
 
 - [ ] **Step 4: `CLAUDE.md` 갱신**
 

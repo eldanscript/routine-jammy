@@ -31,7 +31,7 @@ python3 src/routine-jammy/weekly_refresh.py
 1. `docs/data/jammy/current-week.json`의 현재 주차를 읽는다.
 2. Apps Script GET으로 그 주의 체크인 데이터를 가져온다.
 3. 카테고리별 완료율을 계산하고, 2주 연속 50% 미만인 항목이 있으면 보수적인 조정을 제안한다.
-4. `history/data.json`과 `history/<weekId>.md`에 이번 주 요약을 기록한다.
+4. `history/jammy/data.json`과 `history/jammy/<weekId>.md`에 이번 주 요약을 기록한다.
 5. `docs/data/jammy/current-week.json`을 다음 주차로 갱신한다 (날짜만 +7일, 조정 사항이 있으면 `appliedAdjustments`로 표시).
 6. 변경사항을 커밋하고 `origin/main`에 push한다 — GitHub Pages가 자동 재배포된다.
 7. 성공/실패 여부와 관계없이 Telegram으로 요약/실패 메시지를 보낸다 (`execute()` 참고).

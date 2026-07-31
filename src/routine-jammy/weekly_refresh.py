@@ -21,7 +21,7 @@ from routine_rules import (
     recorded_days_by_item,
     suggest_adjustments,
 )
-from sheet_client import fetch_week
+from supabase_client import fetch_week
 from telegram_notifier import send_telegram
 
 _MACROS = ["kcal", "protein", "fat", "carb"]

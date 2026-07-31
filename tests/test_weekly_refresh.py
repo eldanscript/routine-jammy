@@ -369,3 +369,15 @@ def test_run_with_real_catalog_and_person_preserves_category_order(tmp_path):
     history = json.loads((history_dir / "data.json").read_text(encoding="utf-8"))
     entry = history["weeks"]["2026-W31"]
     assert list(entry["completionByCategory"].keys()) == list(result["rates"].keys())
+
+
+def test_default_fetch_is_the_supabase_client():
+    """저장소 교체 후에도 run()의 기본 fetch가 실제 클라이언트를 가리키는지 고정한다."""
+    import inspect
+
+    import supabase_client
+    from weekly_refresh import run
+
+    default = inspect.signature(run).parameters["fetch_week_fn"].default
+    assert default is supabase_client.fetch_week
+    assert "person" in inspect.signature(default).parameters

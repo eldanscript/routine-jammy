@@ -100,6 +100,32 @@ test('validateCustomItemName accepts a valid trimmed new name', () => {
   assert.equal(validateCustomItemName('  런닝머신  ', reserved), null);
 });
 
+// Regression for a reviewer-caught bug: app.js's reservedCustomNames() used to build its
+// dedup set as `[...dayTasks, ...itemsMeta.suggestions.exercise, ...customItems]`, which
+// unconditionally reserved every suggestion-chip name (캐틀벨 스윙/푸시업/버피/...) even
+// before the user ever added one — so clicking a suggestion chip, or typing its exact
+// name, always failed as "이미 있는 항목이에요". The fix mirrors renderCustomItemManager's
+// `remaining` filter: only day tasks + names the user has *actually* added are reserved.
+// These two tests reproduce reservedCustomNames' (fixed) set-building logic directly,
+// since it lives inside app.js's IIFE and isn't independently requireable from Node.
+function reservedCustomNames(dayTasks, customItems) {
+  return new Set([...dayTasks, ...customItems.map((custom) => custom.name)]);
+}
+
+test('a suggestion-list name not yet added as a custom item is accepted (not falsely reserved)', () => {
+  const dayTasks = ['슬로우 조깅', '스쿼트'];
+  const customItems = []; // 아직 아무 것도 추가하지 않은 상태 — suggestions는 여전히 미사용
+  const reserved = reservedCustomNames(dayTasks, customItems);
+  assert.equal(validateCustomItemName('푸시업', reserved), null);
+});
+
+test('a name that is already an active custom item is still rejected as duplicate', () => {
+  const dayTasks = ['슬로우 조깅', '스쿼트'];
+  const customItems = [{ name: '푸시업', section: 'exercise' }];
+  const reserved = reservedCustomNames(dayTasks, customItems);
+  assert.equal(validateCustomItemName('푸시업', reserved), '이미 있는 항목이에요');
+});
+
 test('parseKmInput accepts comma decimals within range, rounded to one decimal', () => {
   assert.equal(parseKmInput('5,25', 0.1, 99), 5.3);
   assert.equal(parseKmInput(' 3.0 ', 0.1, 99), 3);

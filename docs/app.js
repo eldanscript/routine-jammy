@@ -495,8 +495,7 @@
   };
 
   function reservedCustomNames(customItems) {
-    const suggestions = (itemsMeta && itemsMeta.suggestions && itemsMeta.suggestions.exercise) || [];
-    return new Set([...weekData.days[0].tasks, ...suggestions, ...customItems.map((custom) => custom.name)]);
+    return new Set([...weekData.days[0].tasks, ...customItems.map((custom) => custom.name)]);
   }
 
   function addCustomItemFlow(name, section) {

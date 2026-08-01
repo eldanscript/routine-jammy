@@ -23,7 +23,9 @@ description: routine-jammy의 이번 주 결과를 리뷰하고 다음 주 루�
 
 ```bash
 cd ~/dev-out/routine-jammy
-source .env 2>/dev/null || true   # SUPABASE_URL / SUPABASE_SECRET_KEY / ROUTINE_TELEGRAM_* 로드
+# set -a 필수 — .env는 export 없는 VAR=value 형식이라, 이게 없으면 셸 변수로만 잡히고
+# python 자식 프로세스가 물려받지 못해 KeyError로 죽는다.
+set -a; source .env 2>/dev/null; set +a   # SUPABASE_URL / SUPABASE_SECRET_KEY / ROUTINE_TELEGRAM_* 로드
 python3 src/routine-jammy/weekly_refresh.py
 ```
 

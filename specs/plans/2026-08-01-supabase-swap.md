@@ -799,9 +799,12 @@ Authentication 절의 Apps Script 관련 서술을 다음으로 바꾼다:
 ```bash
 source .env 2>/dev/null || true   # ROUTINE_APPS_SCRIPT_URL / ROUTINE_SHARED_SECRET / ROUTINE_TELEGRAM_* 로드
 ```
-→
+→ **변수 이름만 바꾸면 안 된다. `set -a`도 함께 넣어야 한다** (Task 3 Step 6과 같은 이유 —
+크론뿐 아니라 이 수동 실행 절차도 똑같이 깨져 있다):
 ```bash
-source .env 2>/dev/null || true   # SUPABASE_URL / SUPABASE_SECRET_KEY / ROUTINE_TELEGRAM_* 로드
+# set -a 필수 — .env는 export 없는 VAR=value 형식이라, 이게 없으면 셸 변수로만 잡히고
+# python 자식 프로세스가 물려받지 못해 KeyError로 죽는다.
+set -a; source .env 2>/dev/null; set +a   # SUPABASE_URL / SUPABASE_SECRET_KEY / ROUTINE_TELEGRAM_* 로드
 ```
 
 33행: `2. Apps Script GET으로 그 주의 체크인 데이터를 가져온다.`

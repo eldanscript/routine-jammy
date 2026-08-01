@@ -691,8 +691,11 @@ Expected: 출력 없음
 
 - [ ] **Step 7: JS 테스트**
 
-Run: `node --test tests/js/`
-Expected: 통과 (이 파일들은 `routine-logic.js`만 테스트하므로 영향 없음)
+Run: `node --test "tests/js/*.test.js"`
+Expected: 2개 통과 (이 파일들은 `routine-logic.js`만 테스트하므로 영향 없음)
+
+**디렉터리 인자(`node --test tests/js/`)는 이 환경의 Node v22에서 `MODULE_NOT_FOUND`로 죽는다.**
+변경 전 트리에서도 똑같이 죽으므로 회귀가 아니다 — 글롭을 쓸 것.
 
 - [ ] **Step 8: 실제 왕복 확인**
 
@@ -700,7 +703,18 @@ Expected: 통과 (이 파일들은 `routine-logic.js`만 테스트하므로 영�
 cd ~/dev-out/routine-jammy/docs && python3 -m http.server 8899
 ```
 
-브라우저에서 **`http://localhost:8899/?person=jammy&t=<토큰>`** 을 연다(토큰은 `.env`의 `ROUTINE_JAMMY_TOKEN`).
+브라우저에서 **`http://localhost:8899/?person=jammy&t=<토큰>#/check-in`** 을 연다
+(토큰은 `.env`의 `ROUTINE_JAMMY_TOKEN`). **`#/check-in` 해시가 있어야 체크박스가 나온다** —
+기본 화면은 홈이라 체크박스가 0개다. 연결 상태 문구는 `#/settings`에 있다.
+
+수동으로 못 할 때는 헤드리스로 같은 것을 할 수 있다. Node 22엔 WebSocket이 내장돼 있어
+의존성 설치 없이 CDP로 실제 `docs/app.js`를 구동할 수 있다:
+
+```bash
+google-chrome --headless=new --remote-debugging-port=9222 --user-data-dir=/tmp/rj-chrome &
+# 이후 http://localhost:9222/json/list 에서 page 타깃의 webSocketDebuggerUrl을 얻어
+# Page.navigate + Runtime.evaluate 로 체크박스를 클릭하고 Network.responseReceived 를 읽는다
+```
 
 - [ ] 설정 화면에 "연결됨"이 뜬다
 - [ ] 오늘 항목 하나를 체크한다

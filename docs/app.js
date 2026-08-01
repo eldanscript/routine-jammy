@@ -1,7 +1,10 @@
 (function () {
+  const params = new URLSearchParams(location.search);
   const CONFIG = {
-    appsScriptUrl: window.ROUTINE_CONFIG && window.ROUTINE_CONFIG.appsScriptUrl,
-    sharedSecret: window.ROUTINE_CONFIG && window.ROUTINE_CONFIG.sharedSecret,
+    supabaseUrl: window.ROUTINE_CONFIG && window.ROUTINE_CONFIG.supabaseUrl,
+    publishableKey: window.ROUTINE_CONFIG && window.ROUTINE_CONFIG.publishableKey,
+    personId: params.get('person') || 'jammy',
+    writeToken: params.get('t') || '',
   };
   const QUEUE_KEY = 'routine-jammy:pending-checkins';
   const STICKER_BY_EXERCISE_TYPE = {
@@ -72,16 +75,41 @@
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   }
 
+  // 체크인 payload를 테이블 컬럼 모양으로 바꾼다.
+  // note / reflection 은 별도 컬럼이 아니라 payload JSONB 안으로 들어간다.
+  function toRow(payload) {
+    const extra = {};
+    if (payload.note !== undefined) extra.note = payload.note;
+    if (payload.reflection !== undefined) Object.assign(extra, payload.reflection);
+    return {
+      person_id: CONFIG.personId,
+      week_id: payload.weekId,
+      day: payload.day,
+      item: payload.item,
+      checked: payload.checked,
+      payload: extra,
+      client_ts: payload.timestamp,
+    };
+  }
+
   async function postCheckin(payload) {
-    const response = await fetch(CONFIG.appsScriptUrl, {
+    const response = await fetch(`${CONFIG.supabaseUrl}/rest/v1/checkins`, {
       method: 'POST',
-      body: JSON.stringify({ ...payload, secret: CONFIG.sharedSecret }),
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: CONFIG.publishableKey,
+        Authorization: `Bearer ${CONFIG.publishableKey}`,
+        'x-routine-token': CONFIG.writeToken,
+        // anon에 SELECT 권한이 없다. 결과를 돌려달라고 하면 INSERT 전체가 실패한다.
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(toRow(payload)),
     });
     if (!response.ok) throw new Error(`status ${response.status}`);
   }
 
   async function sendCheckin(payload) {
-    if (!CONFIG.appsScriptUrl) {
+    if (!CONFIG.supabaseUrl || !CONFIG.writeToken) {
       queueCheckin(payload);
       return;
     }
@@ -93,7 +121,7 @@
   }
 
   async function flushQueue() {
-    if (!CONFIG.appsScriptUrl) return;
+    if (!CONFIG.supabaseUrl || !CONFIG.writeToken) return;
     while (true) {
       const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
       if (queue.length === 0) return;
@@ -286,7 +314,7 @@
   function renderSettings() {
     return `
       <h2>설정</h2>
-      <p class="muted">동기화 서버 연결: ${CONFIG.appsScriptUrl ? '연결됨' : '아직 설정되지 않음'}</p>
+      <p class="muted">동기화 서버 연결: ${CONFIG.supabaseUrl && CONFIG.writeToken ? '연결됨' : '아직 설정되지 않음 (링크에 토큰이 없습니다)'}</p>
       <button id="clear-queue" class="primary-button">보내지 못한 체크 기록 초기화</button>
     `;
   }

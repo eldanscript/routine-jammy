@@ -23,13 +23,13 @@ description: routine-jammy의 이번 주 결과를 리뷰하고 다음 주 루�
 
 ```bash
 cd ~/dev-out/routine-jammy
-source .env 2>/dev/null || true   # ROUTINE_APPS_SCRIPT_URL / ROUTINE_SHARED_SECRET / ROUTINE_TELEGRAM_* 로드
+source .env 2>/dev/null || true   # SUPABASE_URL / SUPABASE_SECRET_KEY / ROUTINE_TELEGRAM_* 로드
 python3 src/routine-jammy/weekly_refresh.py
 ```
 
 `weekly_refresh.main()`이 하는 일 (자세한 구현은 `src/routine-jammy/weekly_refresh.py`):
 1. `docs/data/jammy/current-week.json`의 현재 주차를 읽는다.
-2. Apps Script GET으로 그 주의 체크인 데이터를 가져온다.
+2. Supabase에서 그 주의 체크인 데이터를 가져온다.
 3. 카테고리별 완료율을 계산하고, 2주 연속 50% 미만인 항목이 있으면 보수적인 조정을 제안한다.
 4. `history/jammy/data.json`과 `history/jammy/<weekId>.md`에 이번 주 요약을 기록한다.
 5. `docs/data/jammy/current-week.json`을 다음 주차로 갱신한다 (날짜만 +7일, 조정 사항이 있으면 `appliedAdjustments`로 표시).
@@ -55,7 +55,7 @@ python3 src/routine-jammy/weekly_refresh.py
 `execute()`는 실패 지점과 무관하게 예외를 다시 던지기 전에 Telegram으로 실패 메시지(예외
 메시지 포함)를 보낸다. 실패 지점에 따라 실제 상태가 다르므로 구분해서 대응한다:
 
-- **`run()` 내부에서 실패** (예: Apps Script가 응답하지 않는 `SheetClientError`, 배포가 아직
+- **`run()` 내부에서 실패** (예: Supabase가 응답하지 않는 `SupabaseClientError`, 배포가 아직
   안 된 상태): `commit_and_push()`는 아예 호출되지 않으므로 아무 것도 바뀌지 않았다.
   `docs/data/jammy/current-week.json`, `history/`는 모두 이전 상태 그대로이고 이전 주 루틴이 그대로
   유지된다. 원인을 해결한 뒤 스크립트를 그냥 재실행하면 된다.
@@ -68,4 +68,4 @@ python3 src/routine-jammy/weekly_refresh.py
   수동으로 다시 실행한다.
 
 Telegram 발송 자체가 실패해도(토큰 오류 등) 원래 예외는 그대로 전파되어 크론 로그/종료
-코드에 남는다. 실패 알림을 받으면 `apps-script/README.md`의 배포 상태를 확인한다.
+코드에 남는다. 실패 알림을 받으면 Supabase 대시보드에서 프로젝트가 일시정지되지 않았는지 먼저 확인한다 (무료 티어는 활동이 없으면 정지된다).

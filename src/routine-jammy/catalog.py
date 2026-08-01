@@ -7,8 +7,8 @@
 import json
 from pathlib import Path
 
-RULE_TYPES = ("binaryCheck", "timedPractice", "logging")
-GROUPS = ("exercise", "meal", "other")
+RULE_TYPES = ("binaryCheck", "timedPractice", "logging", "adhocCheck")
+GROUPS = ("exercise", "meal", "other", "medication")
 _REQUIRED_FIELDS = ("id", "label", "group", "ruleType")
 
 

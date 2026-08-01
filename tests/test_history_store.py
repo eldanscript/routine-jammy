@@ -116,6 +116,29 @@ def test_render_week_markdown_includes_nutrition_summary_and_recommendations():
     assert "식약처 공공 데이터베이스" in text
 
 
+def test_render_week_markdown_includes_km_line_only_when_km_this_week_present():
+    entry = {
+        "completionByCategory": {"슬로우 조깅": 0.86},
+        "adjustmentsApplied": [],
+        "reflection": {},
+        "exerciseDaysThisWeek": 5,
+        "exerciseStreak": 3,
+        "kmThisWeek": 12.4,
+    }
+    text = render_week_markdown("2026-W31", entry, MEAL_IDS)
+    assert "- 달린 거리: 12.4km" in text
+
+    entry_without_km = {
+        "completionByCategory": {"슬로우 조깅": 0.86},
+        "adjustmentsApplied": [],
+        "reflection": {},
+        "exerciseDaysThisWeek": 5,
+        "exerciseStreak": 3,
+    }
+    text_without_km = render_week_markdown("2026-W31", entry_without_km, MEAL_IDS)
+    assert "달린 거리" not in text_without_km
+
+
 def test_render_week_markdown_omits_optional_sections_when_absent():
     entry = {
         "completionByCategory": {"슬로우 조깅": 0.86},

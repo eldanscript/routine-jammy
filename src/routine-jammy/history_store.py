@@ -52,6 +52,8 @@ def render_week_markdown(week_id: str, entry: dict, meal_ids) -> str:
         lines.append("## 운동 요약")
         lines.append(f"- 운동한 날: {exercise_days}/7일")
         lines.append(f"- 연속 {streak}일째")
+        if "kmThisWeek" in entry:
+            lines.append(f"- 달린 거리: {entry['kmThisWeek']}km")
     meals = entry.get("meals")
     if meals:
         lines.append("")

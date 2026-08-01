@@ -11,6 +11,16 @@
     {"id": "바이올린", "label": "바이올린", "group": "other", "ruleType": "timedPractice",
      "suggestion": "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안"},
     {"id": "아점", "label": "아점", "group": "meal", "ruleType": "logging"},
-    {"id": "저녁", "label": "저녁", "group": "meal", "ruleType": "logging"}
+    {"id": "저녁", "label": "저녁", "group": "meal", "ruleType": "logging"},
+    {"id": "캐틀벨 스윙", "label": "캐틀벨 스윙", "group": "exercise", "ruleType": "adhocCheck"},
+    {"id": "푸시업", "label": "푸시업", "group": "exercise", "ruleType": "adhocCheck"},
+    {"id": "버피", "label": "버피", "group": "exercise", "ruleType": "adhocCheck"},
+    {"id": "마운틴 클라이머", "label": "마운틴 클라이머", "group": "exercise", "ruleType": "adhocCheck"},
+    {"id": "글루트 브릿지", "label": "글루트 브릿지", "group": "exercise", "ruleType": "adhocCheck"},
+    {"id": "크런치", "label": "크런치", "group": "exercise", "ruleType": "adhocCheck"},
+    {"id": "고지혈증약", "label": "고지혈증약", "group": "medication", "ruleType": "binaryCheck"},
+    {"id": "코큐텐", "label": "코큐텐", "group": "medication", "ruleType": "binaryCheck"},
+    {"id": "비타민C/D", "label": "비타민C/D", "group": "medication", "ruleType": "binaryCheck"},
+    {"id": "마그네슘", "label": "마그네슘", "group": "medication", "ruleType": "binaryCheck"}
   ]
 }

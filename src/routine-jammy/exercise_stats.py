@@ -74,6 +74,26 @@ def rolling_completion_average(history, category, current_week_id, current_rate,
     return sum(recent) / len(recent) if recent else None
 
 
+def total_metric(responses, item_ids, key):
+    """responses 중 item이 item_ids에 있고 checked=True이며 payload[key]가 숫자(bool 제외)인
+    행만 골라 그 값을 합산한다(소수 1자리 반올림).
+
+    payload는 클라이언트발 비신뢰 입력이다 — 잘못된 값(None/문자열/bool/키 부재) 하나가
+    weekly_refresh.run 전체를 죽이면 일요일 크론이 매주 재실패하므로, 그런 값은 raise 없이
+    예외 없이 무시한다.
+    """
+    item_id_set = set(item_ids)
+    total = 0.0
+    for response in responses:
+        if response.get("item") not in item_id_set or response.get("checked") is not True:
+            continue
+        value = response.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        total += value
+    return round(total, 1)
+
+
 def category_skip_pattern(history, current_week_id, current_day_level, exercise_ids):
     """Across ALL weeks with weekId <= current_week_id that have a "byDay" key (including
     the current week via `current_day_level`), count how many times each (day, category)

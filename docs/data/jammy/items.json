@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "sections": [
+    {"id": "exercise", "title": "운동"},
+    {"id": "medication", "title": "약/영양제"},
+    {"id": "other", "title": "기타"}
+  ],
+  "groups": {
+    "슬로우 조깅": "exercise",
+    "스쿼트": "exercise",
+    "데드리프트": "exercise",
+    "런지": "exercise",
+    "플랭크": "exercise",
+    "고지혈증약": "medication",
+    "코큐텐": "medication",
+    "비타민C/D": "medication",
+    "마그네슘": "medication",
+    "간식섭취": "other",
+    "바이올린": "other"
+  },
+  "metrics": {
+    "슬로우 조깅": {"key": "km", "unit": "km", "min": 0.1, "max": 99}
+  },
+  "suggestions": {
+    "exercise": ["캐틀벨 스윙", "푸시업", "버피", "마운틴 클라이머", "글루트 브릿지", "크런치"],
+    "medication": []
+  }
+}

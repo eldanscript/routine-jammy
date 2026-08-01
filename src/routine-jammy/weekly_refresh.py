@@ -9,7 +9,13 @@ from datetime import datetime
 from pathlib import Path
 
 from catalog import item_ids, items_by_group, load_catalog
-from exercise_stats import build_day_level, days_with_any_exercise, exercised_sequence, longest_current_streak
+from exercise_stats import (
+    build_day_level,
+    days_with_any_exercise,
+    exercised_sequence,
+    longest_current_streak,
+    total_metric,
+)
 from history_store import extract_meal_log, load_history, save_week, save_week_markdown
 from next_week_builder import shift_week
 from nutrition_lookup import NUTRITION_DISCLAIMER, estimate_meal_nutrition, weekly_macro_recommendations
@@ -101,6 +107,7 @@ def run(
     exercise_days = days_with_any_exercise(day_level, exercise_ids)
     streak = longest_current_streak(exercised_sequence(history, week_id, day_level, exercise_ids))
     nutrition = _weekly_nutrition(meals, estimate_meal_nutrition_fn)
+    km_this_week = total_metric(sheet_data["responses"], exercise_ids, "km")
 
     entry = {
         "completionByCategory": rates,
@@ -111,6 +118,7 @@ def run(
         "meals": meals,
         "exerciseDaysThisWeek": exercise_days,
         "exerciseStreak": streak,
+        "kmThisWeek": km_this_week,
         "nutrition": nutrition,
     }
     save_week(history_dir, week_id, entry)
@@ -128,6 +136,7 @@ def run(
         json.dumps({
             "exerciseDaysThisWeek": exercise_days,
             "exerciseStreak": streak,
+            "kmLastWeek": km_this_week,
             "weekId": week_id,
             "updatedAt": datetime.now().astimezone().isoformat(),
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -153,6 +162,7 @@ def run(
         "nextWeekId": next_week["weekId"],
         "exerciseDaysThisWeek": exercise_days,
         "exerciseStreak": streak,
+        "kmThisWeek": km_this_week,
         "nutritionWeeklyAverage": nutrition["weeklyAverage"],
     }
 
@@ -191,6 +201,7 @@ def build_success_message(result: dict) -> str:
     lines.append(
         f"운동한 날: {result['exerciseDaysThisWeek']}/7일, 연속 {result['exerciseStreak']}일째"
     )
+    lines.append(f"달린 거리: {result['kmThisWeek']}km")
     nutrition_average = result["nutritionWeeklyAverage"]
     lines.append(
         f"평균 섭취(추정치): {round(nutrition_average['kcal'])}kcal, "

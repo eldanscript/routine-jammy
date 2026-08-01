@@ -4,9 +4,7 @@
 바꾸지 않는다**. 기대값이 바뀌어야 통과한다면 그것은 회귀다.
 """
 
-from pathlib import Path
-
-from catalog import item_ids, items_by_group, load_catalog
+from catalog import item_ids, items_by_group
 from exercise_stats import (
     build_day_level,
     category_skip_pattern,
@@ -18,7 +16,23 @@ from exercise_stats import (
 from history_store import extract_meal_log, render_week_markdown
 from routine_rules import completion_by_category, find_low_categories, suggest_adjustments
 
-CATALOG = load_catalog(Path(__file__).resolve().parents[1] / "catalog.json")
+# 2026-08 카탈로그 확장 시 입력을 동결 — 기대값 불변.
+# 실카탈로그(catalog.json) 로드 대신, 이 파일이 만들어졌을 당시(9항목)의 카탈로그를
+# 그대로 inline fixture로 고정한다. 이후 catalog.json에 아이템이 추가돼도 이 파일의
+# 기대값은 절대 바뀌면 안 된다 — 바뀐다면 그것은 회귀다.
+CATALOG = [
+    {"id": "슬로우 조깅", "label": "슬로우 조깅", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "스쿼트", "label": "스쿼트", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "데드리프트", "label": "데드리프트", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "런지", "label": "런지", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "플랭크", "label": "플랭크", "group": "exercise", "ruleType": "binaryCheck"},
+    {"id": "간식섭취", "label": "간식섭취", "group": "other", "ruleType": "binaryCheck",
+     "suggestion": "간식섭취 체크 기준을 더 쉽게 낮추는 걸 제안"},
+    {"id": "바이올린", "label": "바이올린", "group": "other", "ruleType": "timedPractice",
+     "suggestion": "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안"},
+    {"id": "아점", "label": "아점", "group": "meal", "ruleType": "logging"},
+    {"id": "저녁", "label": "저녁", "group": "meal", "ruleType": "logging"},
+]
 EXERCISE_IDS = item_ids(items_by_group(CATALOG, "exercise"))
 MEAL_IDS = item_ids(items_by_group(CATALOG, "meal"))
 

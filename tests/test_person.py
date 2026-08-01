@@ -81,7 +81,7 @@ def test_person_items_returns_catalog_entries(tmp_path):
     assert [i["id"] for i in person_items(loaded, CATALOG)] == ["아점", "스쿼트"]
 
 
-def test_real_jammy_config_selects_all_nine_items():
+def test_real_jammy_config_selects_all_nineteen_items():
     from pathlib import Path
 
     from catalog import load_catalog
@@ -94,4 +94,6 @@ def test_real_jammy_config_selects_all_nine_items():
     assert set(loaded["items"]) == {
         "슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크",
         "간식섭취", "바이올린", "아점", "저녁",
+        "캐틀벨 스윙", "푸시업", "버피", "마운틴 클라이머", "글루트 브릿지", "크런치",
+        "고지혈증약", "코큐텐", "비타민C/D", "마그네슘",
     }

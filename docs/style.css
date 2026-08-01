@@ -50,9 +50,58 @@ body {
   font-size: 14px;
 }
 
+.check-section { margin-top: 12px; }
+.check-section h4 { margin: 0 0 4px; font-size: 13px; color: var(--routine-text-muted); }
+
 .check-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 .check-item { display: flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; }
-.check-item input { width: 22px; height: 22px; }
+.check-item input[type="checkbox"] { width: 22px; height: 22px; }
+
+.metric-input {
+  width: 64px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--routine-border);
+  border-radius: var(--routine-radius-control);
+  font-family: var(--routine-font);
+  font-size: 14px;
+}
+
+.custom-item-card { display: flex; flex-direction: column; gap: 12px; }
+.custom-item-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.custom-item-form select,
+.custom-item-form input[type="text"] {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--routine-border);
+  border-radius: var(--routine-radius-control);
+  font-family: var(--routine-font);
+  font-size: 14px;
+}
+.custom-item-form input[type="text"] { flex: 1; min-width: 120px; }
+
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--routine-mint-strong);
+  border-radius: 999px;
+  background: var(--routine-mint);
+  color: var(--routine-mint-strong);
+  font-size: 13px;
+}
+
+.custom-item-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.custom-item-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.chip-remove {
+  min-height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--routine-radius-control);
+  background: var(--routine-peach);
+  color: var(--routine-coral);
+  font-size: 13px;
+}
 
 .reflection-form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
 .reflection-form label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }

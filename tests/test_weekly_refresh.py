@@ -79,7 +79,7 @@ def test_run_writes_history_and_advances_week(tmp_path):
             "responses": [
                 {"day": "월", "item": "스쿼트", "checked": False},
                 {"day": "월", "item": "아점", "checked": True, "note": "계란후라이"},
-                {"day": "화", "item": "슬로우 조깅", "checked": True},
+                {"day": "화", "item": "슬로우 조깅", "checked": True, "km": 3.5},
                 {"day": "화", "item": "저녁", "checked": True, "note": "샐러드"},
                 {"day": "수", "item": "스쿼트", "checked": True},
             ],
@@ -96,6 +96,7 @@ def test_run_writes_history_and_advances_week(tmp_path):
     assert result["nextWeekId"] == "2026-W32"
     assert result["exerciseDaysThisWeek"] == 2
     assert result["exerciseStreak"] == 2
+    assert result["kmThisWeek"] == 3.5
     assert result["nutritionWeeklyAverage"] == {"kcal": 150.0, "protein": 9.0, "fat": 9.0, "carb": 9.5}
 
     history = json.loads((history_dir / "data.json").read_text(encoding="utf-8"))
@@ -112,6 +113,7 @@ def test_run_writes_history_and_advances_week(tmp_path):
     }
     assert entry["exerciseDaysThisWeek"] == 2
     assert entry["exerciseStreak"] == 2
+    assert entry["kmThisWeek"] == 3.5
     assert entry["nutrition"]["dailyTotals"] == {
         "월": {"kcal": 200.0, "protein": 14.0, "fat": 16.0, "carb": 1.0},
         "화": {"kcal": 100.0, "protein": 4.0, "fat": 2.0, "carb": 18.0},
@@ -127,6 +129,7 @@ def test_run_writes_history_and_advances_week(tmp_path):
     exercise_stats = json.loads((tmp_path / "exercise-stats.json").read_text(encoding="utf-8"))
     assert exercise_stats["exerciseDaysThisWeek"] == 2
     assert exercise_stats["exerciseStreak"] == 2
+    assert exercise_stats["kmLastWeek"] == 3.5
     assert exercise_stats["weekId"] == "2026-W31"
     assert exercise_stats["updatedAt"]
 
@@ -163,6 +166,7 @@ _FAKE_RESULT = {
     "nextWeekId": "2026-W32",
     "exerciseDaysThisWeek": 5,
     "exerciseStreak": 3,
+    "kmThisWeek": 12.4,
     "nutritionWeeklyAverage": {"kcal": 1850.0, "protein": 95.0, "fat": 65.0, "carb": 210.0},
 }
 
@@ -183,6 +187,7 @@ def test_execute_sends_success_telegram_message_on_success(monkeypatch, tmp_path
     assert "2026-W32" in sent["text"]
     assert "운동한 날: 5/7일" in sent["text"]
     assert "연속 3일째" in sent["text"]
+    assert "달린 거리: 12.4km" in sent["text"]
     assert "평균 섭취(추정치): 1850kcal, 탄 210g / 지 65g / 단 95g" in sent["text"]
 
 
@@ -364,6 +369,7 @@ def test_run_with_real_catalog_and_person_preserves_category_order(tmp_path):
 
     assert list(result["rates"].keys()) == [
         "슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크", "간식섭취", "바이올린",
+        "고지혈증약", "코큐텐", "비타민C/D", "마그네슘",
     ]
 
     history = json.loads((history_dir / "data.json").read_text(encoding="utf-8"))

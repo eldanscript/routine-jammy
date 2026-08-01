@@ -5,6 +5,7 @@ from exercise_stats import (
     exercised_sequence,
     longest_current_streak,
     rolling_completion_average,
+    total_metric,
 )
 
 EXERCISE_IDS = ["슬로우 조깅", "스쿼트", "데드리프트", "런지", "플랭크"]
@@ -84,6 +85,43 @@ def test_rolling_completion_average_skips_week_missing_category():
 def test_rolling_completion_average_none_when_no_data():
     history = {"weeks": {}}
     assert rolling_completion_average(history, "스쿼트", "2026-W31", None, num_weeks=4) is None
+
+
+def test_total_metric_sums_int_and_float_values():
+    responses = [
+        {"day": "월", "item": "슬로우 조깅", "checked": True, "km": 5},
+        {"day": "화", "item": "슬로우 조깅", "checked": True, "km": 3.2},
+    ]
+    assert total_metric(responses, ["슬로우 조깅"], "km") == 8.2
+
+
+def test_total_metric_ignores_null_value():
+    responses = [{"day": "월", "item": "슬로우 조깅", "checked": True, "km": None}]
+    assert total_metric(responses, ["슬로우 조깅"], "km") == 0.0
+
+
+def test_total_metric_ignores_string_value():
+    responses = [{"day": "월", "item": "슬로우 조깅", "checked": True, "km": "5.2"}]
+    assert total_metric(responses, ["슬로우 조깅"], "km") == 0.0
+
+
+def test_total_metric_ignores_bool_value():
+    responses = [{"day": "월", "item": "슬로우 조깅", "checked": True, "km": True}]
+    assert total_metric(responses, ["슬로우 조깅"], "km") == 0.0
+
+
+def test_total_metric_ignores_unchecked_rows():
+    responses = [{"day": "월", "item": "슬로우 조깅", "checked": False, "km": 5.0}]
+    assert total_metric(responses, ["슬로우 조깅"], "km") == 0.0
+
+
+def test_total_metric_ignores_missing_key():
+    responses = [{"day": "월", "item": "슬로우 조깅", "checked": True}]
+    assert total_metric(responses, ["슬로우 조깅"], "km") == 0.0
+
+
+def test_total_metric_empty_responses_is_zero():
+    assert total_metric([], ["슬로우 조깅"], "km") == 0.0
 
 
 def test_category_skip_pattern_counts_missing_and_false_as_skips():

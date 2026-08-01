@@ -7,6 +7,7 @@
     writeToken: params.get('t') || '',
   };
   const QUEUE_KEY = 'routine-jammy:pending-checkins';
+  const CUSTOM_ITEMS_KEY = 'routine-jammy:custom-items';
   const STICKER_BY_EXERCISE_TYPE = {
     slowJog: 'jogging', recoveryJog: 'jogging',
     strengthA: 'squat', strengthB: 'deadlift', strengthC: 'lunge',
@@ -17,18 +18,24 @@
   let weekData = null;
   let exerciseStats = null;
   let nutritionStats = null;
+  // items.json fetch가 실패하면 null로 남는다 — 섹션 그룹핑은 플랫 목록으로 강등되고
+  // (RoutineLogic.groupTasksBySection), km 입력·커스텀 관리는 이 값에 의존하므로 함께
+  // 비활성화된다(렌더 쪽에서 itemsMeta 존재 여부로 분기).
+  let itemsMeta = null;
 
   async function loadData() {
-    const [staticResponse, weekResponse, exerciseStatsResponse, nutritionStatsResponse] = await Promise.all([
+    const [staticResponse, weekResponse, exerciseStatsResponse, nutritionStatsResponse, itemsResponse] = await Promise.all([
       fetch('data/routine-static.json'),
       fetch('data/jammy/current-week.json'),
       fetch('data/jammy/exercise-stats.json'),
       fetch('data/jammy/nutrition-stats.json'),
+      fetch('data/jammy/items.json'),
     ]);
     staticData = await staticResponse.json();
     weekData = await weekResponse.json();
     exerciseStats = exerciseStatsResponse.ok ? await exerciseStatsResponse.json() : null;
     nutritionStats = nutritionStatsResponse.ok ? await nutritionStatsResponse.json() : null;
+    itemsMeta = itemsResponse.ok ? await itemsResponse.json() : null;
   }
 
   function todayIndex() {
@@ -60,6 +67,43 @@
     localStorage.setItem(`routine-jammy:meals:${weekData.weekId}`, JSON.stringify(state));
   }
 
+  function getMetricsState() {
+    const raw = localStorage.getItem(`routine-jammy:metrics:${weekData.weekId}`);
+    return raw ? JSON.parse(raw) : {};
+  }
+
+  function setMetric(day, item, metric) {
+    const state = getMetricsState();
+    state[day] = state[day] || {};
+    state[day][item] = metric;
+    localStorage.setItem(`routine-jammy:metrics:${weekData.weekId}`, JSON.stringify(state));
+  }
+
+  function removeMetric(day, item) {
+    const state = getMetricsState();
+    if (state[day]) {
+      delete state[day][item];
+      if (Object.keys(state[day]).length === 0) delete state[day];
+    }
+    localStorage.setItem(`routine-jammy:metrics:${weekData.weekId}`, JSON.stringify(state));
+  }
+
+  function getCustomItems() {
+    const raw = localStorage.getItem(CUSTOM_ITEMS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }
+
+  function addCustomItem(name, section) {
+    const items = getCustomItems();
+    items.push({ name, section });
+    localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(items));
+  }
+
+  function removeCustomItem(name) {
+    const items = getCustomItems().filter((item) => item.name !== name);
+    localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(items));
+  }
+
   function escapeHtml(text) {
     return text
       .replace(/&/g, '&amp;')
@@ -76,11 +120,12 @@
   }
 
   // 체크인 payload를 테이블 컬럼 모양으로 바꾼다.
-  // note / reflection 은 별도 컬럼이 아니라 payload JSONB 안으로 들어간다.
+  // note / reflection / km 은 별도 컬럼이 아니라 payload JSONB 안으로 들어간다.
   function toRow(payload) {
     const extra = {};
     if (payload.note !== undefined) extra.note = payload.note;
     if (payload.reflection !== undefined) Object.assign(extra, payload.reflection);
+    if (payload.km !== undefined) extra.km = payload.km;
     return {
       person_id: CONFIG.personId,
       week_id: payload.weekId,
@@ -108,9 +153,21 @@
     if (!response.ok) throw new Error(`status ${response.status}`);
   }
 
+  // 리스크: 큐에 이미 쌓인 체크인이 있는 상태에서 새 체크인을 곧바로 직송하면, 서버에는
+  // 새 체크인이 먼저 도착하고 이전 체크인이 나중에 도착할 수 있다 — latest-wins 저장이라
+  // 순서가 뒤바뀌면 서버 상태가 실제 클릭 순서와 달라진다. 완화책: 큐가 비어있지 않으면
+  // 직송하지 않고 큐에 넣은 뒤 flushQueue로 순서를 지켜 보낸다.
+  let isFlushing = false;
+
   async function sendCheckin(payload) {
     if (!CONFIG.supabaseUrl || !CONFIG.writeToken) {
       queueCheckin(payload);
+      return;
+    }
+    const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    if (queue.length > 0) {
+      queueCheckin(payload);
+      flushQueue();
       return;
     }
     try {
@@ -122,20 +179,26 @@
 
   async function flushQueue() {
     if (!CONFIG.supabaseUrl || !CONFIG.writeToken) return;
-    while (true) {
-      const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-      if (queue.length === 0) return;
-      const next = queue[0];
-      try {
-        await postCheckin(next);
-      } catch (error) {
-        return;
+    if (isFlushing) return; // 빠른 연속 체크로 재진입해도 같은 행을 중복 POST하지 않는다.
+    isFlushing = true;
+    try {
+      while (true) {
+        const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+        if (queue.length === 0) return;
+        const next = queue[0];
+        try {
+          await postCheckin(next);
+        } catch (error) {
+          return;
+        }
+        const updatedQueue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+        const sentJson = JSON.stringify(next);
+        const index = updatedQueue.findIndex((item) => JSON.stringify(item) === sentJson);
+        if (index !== -1) updatedQueue.splice(index, 1);
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(updatedQueue));
       }
-      const updatedQueue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-      const sentJson = JSON.stringify(next);
-      const index = updatedQueue.findIndex((item) => JSON.stringify(item) === sentJson);
-      if (index !== -1) updatedQueue.splice(index, 1);
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(updatedQueue));
+    } finally {
+      isFlushing = false;
     }
   }
 
@@ -143,8 +206,50 @@
     return (event) => {
       const checked = event.target.checked;
       setChecked(day, item, checked);
-      sendCheckin({ weekId: weekData.weekId, day, item, checked, timestamp: new Date().toISOString() });
+      const payload = { weekId: weekData.weekId, day, item, checked, timestamp: new Date().toISOString() };
+      if (checked) {
+        const metricsState = getMetricsState();
+        const itemMetrics = metricsState[day] && metricsState[day][item];
+        if (itemMetrics && itemMetrics.km !== undefined) payload.km = itemMetrics.km;
+      } else {
+        const metricsState = getMetricsState();
+        if (metricsState[day] && metricsState[day][item] && metricsState[day][item].km !== undefined) {
+          removeMetric(day, item);
+          const metricInput = event.target.closest('.check-item').querySelector('input.metric-input');
+          if (metricInput) metricInput.value = '';
+        }
+      }
+      sendCheckin(payload);
     };
+  }
+
+  function handleMetricInputBlur(event) {
+    const input = event.target;
+    const day = input.dataset.metricDay;
+    const item = input.dataset.metricItem;
+    const key = input.dataset.metricKey;
+    const min = parseFloat(input.dataset.metricMin);
+    const max = parseFloat(input.dataset.metricMax);
+
+    const metricsState = getMetricsState();
+    const previous = metricsState[day] && metricsState[day][item] && metricsState[day][item][key];
+    const value = RoutineLogic.parseKmInput(input.value, min, max);
+
+    if (value === null) {
+      input.value = previous !== undefined ? previous : '';
+      return;
+    }
+    input.value = value;
+    if (value === previous) return;
+
+    setMetric(day, item, { [key]: value });
+    setChecked(day, item, true);
+    const checkbox = input.closest('.check-item').querySelector('input[type="checkbox"]');
+    if (checkbox) checkbox.checked = true;
+    sendCheckin({
+      weekId: weekData.weekId, day, item, checked: true, km: value,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   function renderHome() {
@@ -225,18 +330,72 @@
     `;
   }
 
+  function renderCheckInSections(day, dayChecked, dayMetrics, customItems) {
+    const sections = RoutineLogic.groupTasksBySection(day.tasks, customItems, itemsMeta);
+    return sections.map((section) => {
+      const itemsHtml = section.items.map((item) => {
+        const idAttr = item.isCustom ? escapeHtml(item.id) : item.id;
+        const labelText = item.isCustom ? escapeHtml(item.label) : item.label;
+        const metric = itemsMeta && itemsMeta.metrics && itemsMeta.metrics[item.id];
+        const currentMetric = dayMetrics[item.id] && dayMetrics[item.id][metric && metric.key];
+        const metricHtml = metric ? `
+          <input type="text" inputmode="decimal" maxlength="5" class="metric-input"
+            data-metric-day="${day.day}" data-metric-item="${idAttr}" data-metric-key="${metric.key}"
+            data-metric-min="${metric.min}" data-metric-max="${metric.max}"
+            placeholder="${metric.unit}" value="${currentMetric !== undefined ? currentMetric : ''}">
+        ` : '';
+        return `
+          <label class="check-item">
+            <input type="checkbox" data-day="${day.day}" data-item="${idAttr}" ${dayChecked[item.id] ? 'checked' : ''}>
+            ${labelText}
+            ${metricHtml}
+          </label>
+        `;
+      }).join('');
+      return `<div class="check-section"><h4>${section.title}</h4><div class="check-grid">${itemsHtml}</div></div>`;
+    }).join('');
+  }
+
+  function renderCustomItemManager(customItems) {
+    if (!itemsMeta) return '';
+    const suggestions = (itemsMeta.suggestions && itemsMeta.suggestions.exercise) || [];
+    const remaining = suggestions.filter((name) => !customItems.some((custom) => custom.name === name));
+    const chips = remaining.map((name) => `
+      <button type="button" class="chip" data-suggestion="${escapeHtml(name)}">${escapeHtml(name)}</button>
+    `).join('');
+    const list = customItems.map((custom) => `
+      <li>${escapeHtml(custom.name)} (${custom.section === 'medication' ? '약/영양제' : '운동'})
+        <button type="button" class="chip-remove" data-remove-custom="${escapeHtml(custom.name)}">삭제</button>
+      </li>
+    `).join('');
+    return `
+      <div class="today-card custom-item-card">
+        <strong>내 항목 추가</strong>
+        <div class="custom-item-form">
+          <select id="custom-item-section">
+            <option value="exercise">운동</option>
+            <option value="medication">약/영양제</option>
+          </select>
+          <input type="text" id="custom-item-name" maxlength="30" placeholder="예: 오메가3">
+          <button type="button" id="custom-item-add" class="primary-button">추가</button>
+        </div>
+        ${chips ? `<div class="chip-list">${chips}</div>` : ''}
+        <p class="muted" id="custom-item-error"></p>
+        ${list ? `<ul class="custom-item-list">${list}</ul>` : ''}
+      </div>
+    `;
+  }
+
   function renderCheckIn() {
     const checkedState = getCheckedState();
     const mealState = getMealState();
+    const metricsState = getMetricsState();
+    const customItems = getCustomItems();
     const rows = weekData.days.map((day) => {
       const dayChecked = checkedState[day.day] || {};
       const dayMeals = mealState[day.day] || {};
-      const checkboxes = day.tasks.map((task) => `
-        <label class="check-item">
-          <input type="checkbox" data-day="${day.day}" data-item="${task}" ${dayChecked[task] ? 'checked' : ''}>
-          ${task}
-        </label>
-      `).join('');
+      const dayMetrics = metricsState[day.day] || {};
+      const sectionsHtml = renderCheckInSections(day, dayChecked, dayMetrics, customItems);
       const mealLog = `
         <div class="meal-log">
           <label>아점
@@ -255,16 +414,17 @@
           <button class="primary-button" id="submit-reflection" data-day="${day.day}">회고 저장</button>
         </div>
       ` : '';
-      return `<div class="today-card"><strong>${day.day} ${day.date.slice(5)}</strong><div class="check-grid">${checkboxes}</div>${mealLog}${reflectionForm}</div>`;
+      return `<div class="today-card"><strong>${day.day} ${day.date.slice(5)}</strong>${sectionsHtml}${mealLog}${reflectionForm}</div>`;
     }).join('');
-    return `<h2>매일 체크</h2>${rows}`;
+    return `<h2>매일 체크</h2>${rows}${renderCustomItemManager(customItems)}`;
   }
 
   function buildResponsesFromLocalState() {
     const state = getCheckedState();
+    const customNames = getCustomItems().map((custom) => custom.name);
     const responses = [];
     weekData.days.forEach((day) => {
-      day.tasks.forEach((task) => {
+      [...day.tasks, ...customNames].forEach((task) => {
         responses.push({ item: task, checked: !!(state[day.day] && state[day.day][task]) });
       });
     });
@@ -273,11 +433,17 @@
 
   function renderHistory() {
     const responses = buildResponsesFromLocalState();
-    const categories = weekData.days[0].tasks;
-    const rateRows = categories.map((category) => {
-      const ratio = RoutineLogic.completionRatio(responses, category);
-      return `<li>${category}: ${Math.round(ratio * 100)}%</li>`;
+    const customItems = getCustomItems();
+    const sections = RoutineLogic.groupTasksBySection(weekData.days[0].tasks, customItems, itemsMeta);
+    const sectionsHtml = sections.map((section) => {
+      const rows = section.items.map((item) => {
+        const ratio = RoutineLogic.completionRatio(responses, item.id);
+        const label = item.isCustom ? escapeHtml(item.label) : item.label;
+        return `<li>${label}: ${Math.round(ratio * 100)}%</li>`;
+      }).join('');
+      return `<div class="check-section"><h4>${section.title}</h4><ul>${rows}</ul></div>`;
     }).join('');
+    const kmTotal = RoutineLogic.weeklyKmTotal(getMetricsState());
     const mealState = getMealState();
     const mealRows = weekData.days.map((day) => {
       const dayMeals = mealState[day.day] || {};
@@ -286,7 +452,7 @@
       return `<tr><td>${day.day}</td><td>${breakfast}</td><td>${dinner}</td></tr>`;
     }).join('');
     const exerciseStatsCard = exerciseStats
-      ? `<div class="today-card mint"><strong>지난 주 운동 현황</strong><p>${exerciseStats.weekId} · ${exerciseStats.exerciseDaysThisWeek}/7일 · 연속 ${exerciseStats.exerciseStreak}일째</p></div>`
+      ? `<div class="today-card mint"><strong>지난 주 운동 현황</strong><p>${exerciseStats.weekId} · ${exerciseStats.exerciseDaysThisWeek}/7일 · 연속 ${exerciseStats.exerciseStreak}일째</p>${exerciseStats.kmLastWeek !== undefined ? `<p>지난 주 달린 거리: ${exerciseStats.kmLastWeek}km</p>` : ''}</div>`
       : '';
     const nutritionCard = nutritionStats ? `
       <div class="today-card butter">
@@ -299,7 +465,11 @@
     ` : '';
     return `
       <h2>리포트</h2>
-      <div class="today-card blue"><strong>이번 주 완료율 (이 기기 기준)</strong><ul>${rateRows}</ul></div>
+      <div class="today-card blue">
+        <strong>이번 주 완료율 (이 기기 기준)</strong>
+        ${sectionsHtml}
+        <p>이번 주 달린 거리: ${kmTotal}km</p>
+      </div>
       ${exerciseStatsCard}
       ${nutritionCard}
       <div class="today-card peach">
@@ -324,10 +494,47 @@
     '/check-in': renderCheckIn, '/history': renderHistory, '/settings': renderSettings,
   };
 
+  function reservedCustomNames(customItems) {
+    const suggestions = (itemsMeta && itemsMeta.suggestions && itemsMeta.suggestions.exercise) || [];
+    return new Set([...weekData.days[0].tasks, ...suggestions, ...customItems.map((custom) => custom.name)]);
+  }
+
+  function addCustomItemFlow(name, section) {
+    const customItems = getCustomItems();
+    const error = RoutineLogic.validateCustomItemName(name, reservedCustomNames(customItems));
+    const errorEl = document.getElementById('custom-item-error');
+    if (error) {
+      if (errorEl) errorEl.textContent = error;
+      return;
+    }
+    addCustomItem(name.trim(), section);
+    render();
+  }
+
   function attachInteractions(route) {
     if (route === '/check-in') {
       document.querySelectorAll('#view input[type="checkbox"]').forEach((checkbox) => {
         checkbox.addEventListener('change', handleCheckboxChange(checkbox.dataset.day, checkbox.dataset.item));
+      });
+      document.querySelectorAll('#view input.metric-input').forEach((input) => {
+        input.addEventListener('blur', handleMetricInputBlur);
+      });
+      const addButton = document.getElementById('custom-item-add');
+      if (addButton) {
+        addButton.addEventListener('click', () => {
+          const nameInput = document.getElementById('custom-item-name');
+          const sectionSelect = document.getElementById('custom-item-section');
+          addCustomItemFlow(nameInput.value, sectionSelect.value);
+        });
+      }
+      document.querySelectorAll('#view [data-suggestion]').forEach((chip) => {
+        chip.addEventListener('click', () => addCustomItemFlow(chip.dataset.suggestion, 'exercise'));
+      });
+      document.querySelectorAll('#view [data-remove-custom]').forEach((button) => {
+        button.addEventListener('click', () => {
+          removeCustomItem(button.dataset.removeCustom);
+          render();
+        });
       });
       const reflectionButton = document.getElementById('submit-reflection');
       if (reflectionButton) {

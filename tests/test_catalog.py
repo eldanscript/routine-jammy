@@ -81,6 +81,22 @@ def test_filters_by_group_and_rule_type(tmp_path):
     assert item_ids(items_by_rule_type(items, "logging")) == ["아점"]
 
 
+def test_accepts_medication_group(tmp_path):
+    path = write_catalog(tmp_path, [
+        {"id": "코큐텐", "label": "코큐텐", "group": "medication", "ruleType": "binaryCheck"},
+    ])
+    items = load_catalog(path)
+    assert item_ids(items_by_group(items, "medication")) == ["코큐텐"]
+
+
+def test_accepts_adhoc_check_rule_type(tmp_path):
+    path = write_catalog(tmp_path, [
+        {"id": "푸시업", "label": "푸시업", "group": "exercise", "ruleType": "adhocCheck"},
+    ])
+    items = load_catalog(path)
+    assert item_ids(items_by_rule_type(items, "adhocCheck")) == ["푸시업"]
+
+
 def test_real_catalog_contains_jammys_nine_items():
     from pathlib import Path
 

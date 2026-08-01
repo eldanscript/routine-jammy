@@ -51,9 +51,12 @@ routine-jammy/
 
 ## Authentication
 - GitHub: SSH 키 기반 (SSH-only, HTTPS 토큰 사용 안 함).
-- **Supabase**: publishable 키는 `docs/config.js`에 커밋한다(공개 전제 키). secret 키와
-  사람별 쓰기 토큰은 `.env`에만 두고 커밋하지 않는다. 접근 통제는 DB의 RLS가 한다 —
-  스키마는 `supabase/schema.sql`, 근거는 `specs/2026-07-31-supabase-storage-design.md`.
+- **Supabase**: publishable 키는 `docs/config.js`에 커밋한다(공개 전제 키). secret 키는
+  `.env`에만 두고 커밋하지 않는다. 사람별 쓰기 토큰의 근원은 `person_write_tokens`
+  테이블이며, 각 사람에게는 개인 링크의 `?person=<id>&t=<token>`으로 전달된다(`.env`의
+  `ROUTINE_JAMMY_TOKEN`은 스크립트/테스트가 특정 사람으로 동작하기 위한 편의용 사본일
+  뿐, 원본이 아니다). 접근 통제는 DB의 RLS가 한다 — 스키마는 `supabase/schema.sql`,
+  근거는 `specs/2026-07-31-supabase-storage-design.md`.
 
 ---
 

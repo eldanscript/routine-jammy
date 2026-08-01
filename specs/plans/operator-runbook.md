@@ -22,21 +22,13 @@
    - 참고: 이 저장소에는 `gh` CLI/API 토큰이 없어 이 단계를 명령줄로 자동화할 수 없다.
      반드시 웹 UI에서 수행한다.
 
-2. **Apps Script 배포** — `apps-script/README.md`대로 진행:
-   - script.google.com에서 새 프로젝트 생성, `apps-script/Code.gs` 내용 붙여넣기
-   - Google Sheets 새 스프레드시트 생성 후 시트 ID를 스크립트 속성 `ROUTINE_SHEET_ID`에 저장
-   - `ROUTINE_SHARED_SECRET` 스크립트 속성에 랜덤 문자열 저장 (`openssl rand -hex 16`)
-   - 웹 앱으로 배포 (실행 계정: 나, 액세스: 링크가 있는 모든 사용자)
-   - 배포된 웹 앱 URL과 시크릿을 `docs/config.js`에 채운 뒤:
-     ```bash
-     cd ~/dev-out/routine-jammy
-     git add docs/config.js
-     git commit -m "chore: fill in Apps Script config"
-     git push
-     ```
-   - 같은 URL/시크릿을 이 서버(dev-agent-team이 도는 머신)의 환경 변수
-     `ROUTINE_APPS_SCRIPT_URL` / `ROUTINE_SHARED_SECRET`으로도 저장 (Task 8 주간 자동화가 사용)
-   - `apps-script/README.md`의 `scripts/smoke_test_apps_script.sh`로 배포 확인
+2. **Supabase 설정 확인** (2026-08-01, 옛 Google Sheets 연동은 폐기됨):
+   - `docs/config.js`에는 Supabase URL과 **publishable** 키가 이미 커밋되어 있다 — 이 키는
+     공개를 전제로 설계된 키이며, 접근 통제는 클라이언트 키가 아니라 서버 쪽 Row Level
+     Security(`supabase/schema.sql`)가 담당한다.
+   - 사람별 쓰기 토큰은 `person_write_tokens` 테이블에만 있다. 각 사람의 개인 링크에
+     `?person=<id>&t=<token>` 형태로 임베드되어 전달되며, 커밋되는 파일에는 절대 들어가지
+     않는다.
 
 3. **Telegram 알림 봇 생성** — `raingent`의 finance_agent/tech_report_agent와 같은 패턴으로,
    routine-jammy 전용 봇을 새로 만든다 (기존 봇 재사용 안 함):
@@ -47,16 +39,17 @@
    4. 그 봇과의 채팅방에서 아무 메시지나 먼저 보낸 뒤, 브라우저로
       https://api.telegram.org/bot<토큰>/getUpdates 접속 → "chat":{"id": ...} 값을 ROUTINE_TELEGRAM_CHAT_ID로 저장
    ```
-   두 값을 `~/dev-out/routine-jammy/.env`에 `ROUTINE_APPS_SCRIPT_URL` / `ROUTINE_SHARED_SECRET`과
+   두 값을 `~/dev-out/routine-jammy/.env`에 `SUPABASE_URL` / `SUPABASE_SECRET_KEY`와
    같은 방식으로 추가한다:
    ```bash
    # ~/dev-out/routine-jammy/.env
-   ROUTINE_APPS_SCRIPT_URL=...
-   ROUTINE_SHARED_SECRET=...
+   SUPABASE_URL=...
+   SUPABASE_SECRET_KEY=...
    ROUTINE_TELEGRAM_BOT_TOKEN=...
    ROUTINE_TELEGRAM_CHAT_ID=...
    ```
-   (`.env`는 `.gitignore`에 이미 포함되어 커밋되지 않는다.)
+   (`.env`는 `.gitignore`에 이미 포함되어 커밋되지 않는다. 실제 키 이름은 `cut -d= -f1 .env`로
+   확인할 수 있다 — 값은 절대 출력·커밋하지 않는다.)
 
 4. **GitHub Pages 배포 확인** (1번 저장 후 1-2분 뒤, 빌드가 끝나면):
    ```bash
@@ -68,7 +61,7 @@
    - 대상 아이폰에서 Safari로 `https://eldanscript.github.io/routine-jammy/` 접속
    - 공유 버튼 → "홈 화면에 추가"
 
-## Task 8 자동화: crontab 등록 (아직 미설치)
+## Task 8 자동화: crontab 등록 (설치 완료, 2026-08-01)
 
 `routine_rules.py`의 채점/조정 로직은 결정적 Python이라 크론 시점에 Claude 세션을 띄울
 필요가 없다. Claude의 `CronCreate`는 세션 종료 시 사라지고(날짜/주 단위로 지속되지 않음),
@@ -83,13 +76,18 @@ mkdir -p logs
 ```
 `logs/`는 `.gitignore`에 이미 등록되어 있어 커밋되지 않는다.
 
-crontab 엔트리 (아직 설치 안 됨 — 이 항목이 동작을 확인한 뒤 컨트롤러가 설치 예정):
+crontab 엔트리 (아래 두 줄 모두 설치됨 — `crontab -l`로 확인 가능):
 ```
-0 18 * * 0 cd /home/rainny/dev-out/routine-jammy && /usr/bin/env bash -lc 'source .env 2>/dev/null; python3 src/routine-jammy/weekly_refresh.py' >> /home/rainny/dev-out/routine-jammy/logs/weekly-refresh.log 2>&1
+# set -a 필수: 없으면 .env가 셸 변수로만 잡히고 python 자식 프로세스에 전달되지 않는다
+# (source .env만 쓰면 weekly_refresh.py가 KeyError로 죽는다 — 실측 확인됨)
+0 18 * * 0 cd /home/rainny/dev-out/routine-jammy && /usr/bin/env bash -lc 'set -a; source .env 2>/dev/null; set +a; python3 src/routine-jammy/weekly_refresh.py' >> /home/rainny/dev-out/routine-jammy/logs/weekly-refresh.log 2>&1
+0 7 * * * cd /home/rainny/dev-out/routine-jammy && /usr/bin/env bash -lc 'set -a; source .env 2>/dev/null; set +a; python3 src/routine-jammy/health_check.py' >> /home/rainny/dev-out/routine-jammy/logs/health-check.log 2>&1
 ```
-(매주 일요일 18:00 시스템 로컬 시간. 이 스케줄은 시스템 타임존이 이미 Asia/Seoul로 설정되어
-있다고 가정한다 — `timedatectl` 등으로 확인해서 다르면 시각(`18`)을 그에 맞게 조정해야 한다.)
-설치는 `crontab -e`로 위 줄을 추가하거나 `crontab -l`에 이어 붙인다.
+첫 줄은 매주 일요일 18:00 KST에 주간 리프레시를 실행한다. 둘째 줄은 매일 07:00 KST에
+health check를 돌려 Supabase 프로젝트가 깨어있게 유지한다 — 무료 티어는 활동이 약
+일주일 없으면 프로젝트를 일시정지하는데, 그러면 일요일 주간 잡이 깨진 채로 실패한다.
+(이 스케줄은 시스템 타임존이 이미 Asia/Seoul로 설정되어 있다고 가정한다 — `timedatectl`
+등으로 확인해서 다르면 시각을 그에 맞게 조정해야 한다.)
 
 ## 매주 확인
 
@@ -97,10 +95,10 @@ crontab 엔트리 (아직 설치 안 됨 — 이 항목이 동작을 확인한 �
   전용 Telegram 봇으로 보낸다 (성공/실패 모두 알림).
 - `logs/weekly-refresh.log`에서 최근 실행 로그(표준출력/표준에러)를 확인할 수 있다.
 - 실패 알림이 오면 다음을 확인:
-  - `apps-script/README.md`의 배포 상태
-  - Apps Script 실행 기록 (script.google.com → 해당 프로젝트 → 실행 기록)
+  - Supabase 대시보드(https://supabase.com/dashboard)에서 프로젝트가 일시정지되지 않았는지
+  - `python3 src/routine-jammy/health_check.py`를 직접 돌려 연결 상태 확인
   - GitHub Pages 상태 (아래 참고)
-  - `logs/weekly-refresh.log`의 예외 스택트레이스
+  - `logs/weekly-refresh.log`, `logs/health-check.log`의 예외 스택트레이스
 
 ## GitHub Pages 상태 확인
 
@@ -121,9 +119,7 @@ curl -sS -o /dev/null -w "%{http_code}\n" https://eldanscript.github.io/routine-
 ## 남은 수동 작업 (에이전트가 대신할 수 없음)
 
 - [ ] GitHub Pages 활성화 (위 "최초 설치" 1번) — 웹 UI에서 수동 토글 필요
-- [ ] Apps Script 배포 및 `docs/config.js` 채우기 (위 "최초 설치" 2번) — 대화형 Google 로그인 필요
 - [ ] Telegram 알림 봇 생성 및 `.env`에 토큰/chat_id 저장 (위 "최초 설치" 3번) — Telegram 앱에서
       직접 BotFather와 대화해야 함
 - [ ] GitHub Pages 배포 확인 curl (위 "최초 설치" 4번) — 1번 완료 후에만 의미 있음
 - [ ] 아이폰에 홈 화면 아이콘 추가 (위 "최초 설치" 5번) — 물리적 기기 조작 필요
-- [ ] crontab 엔트리 설치 (위 "Task 8 자동화" 참고) — 엔드포인트(`weekly_refresh.py`) 동작 확인 후 컨트롤러가 설치

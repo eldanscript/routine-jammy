@@ -530,14 +530,38 @@ Expected: 오류 없이 `health check OK`
 
 - [ ] **Step 6: 크론 엔트리 추가**
 
-`crontab -e`로 아래 한 줄을 추가한다(기존 일요일 엔트리는 **그대로 둔다**):
+**★ 기존 주간 엔트리도 함께 고쳐야 한다.** 현재 엔트리는 `source .env`만 하는데, `export`가
+없으면 셸 변수로만 잡히고 **파이썬 자식 프로세스에는 전달되지 않는다.** 실측으로 확인했다:
+
+```bash
+/usr/bin/env bash -lc 'source .env; python3 -c "import os; print(bool(os.environ.get(\"SUPABASE_URL\")))"'   # False
+/usr/bin/env bash -lc 'set -a; source .env; set +a; python3 -c "import os; print(bool(os.environ.get(\"SUPABASE_URL\")))"'   # True
+```
+
+즉 이걸 안 고치면 마이그레이션을 끝내도 일요일 크론은 `KeyError: 'SUPABASE_URL'`로 죽고,
+Telegram 토큰도 마찬가지로 전달되지 않아 실패 알림조차 못 보낸다.
+
+두 엔트리 모두 `set -a; source .env 2>/dev/null; set +a;` 형태로 둔다:
 
 ```
+# routine-jammy — 주간 루틴 자동 리프레시 (일요일 18:00 KST)
+0 18 * * 0 cd /home/rainny/dev-out/routine-jammy && /usr/bin/env bash -lc 'set -a; source .env 2>/dev/null; set +a; python3 src/routine-jammy/weekly_refresh.py' >> /home/rainny/dev-out/routine-jammy/logs/weekly-refresh.log 2>&1
+
 # routine-jammy — Supabase 일시정지 방지 (매일 07:00 KST)
-0 7 * * * cd /home/rainny/dev-out/routine-jammy && /usr/bin/env bash -lc 'source .env 2>/dev/null; python3 src/routine-jammy/health_check.py' >> /home/rainny/dev-out/routine-jammy/logs/health-check.log 2>&1
+0 7 * * * cd /home/rainny/dev-out/routine-jammy && /usr/bin/env bash -lc 'set -a; source .env 2>/dev/null; set +a; python3 src/routine-jammy/health_check.py' >> /home/rainny/dev-out/routine-jammy/logs/health-check.log 2>&1
 ```
 
-확인: `crontab -l | grep -c routine-jammy` → **2**
+확인 (주석 줄도 `routine-jammy`를 포함하므로 실행 줄만 세도록 패턴을 좁힌다):
+- `crontab -l | grep -c 'routine-jammy/[a-z]'` → **2**
+
+그리고 **크론이 실행할 명령을 그대로 재현해** 환경변수가 실제로 전달되는지 확인한다.
+`grep`으로 문자열만 확인하는 건 검증이 아니다:
+
+```bash
+cd /home/rainny/dev-out/routine-jammy
+/usr/bin/env bash -lc 'set -a; source .env 2>/dev/null; set +a; python3 src/routine-jammy/health_check.py'
+echo "EXIT=$?"   # 0 이어야 한다
+```
 
 - [ ] **Step 7: 커밋**
 

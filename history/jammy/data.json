@@ -162,6 +162,46 @@
         "unmatchedFoodItems": [],
         "recommendations": []
       }
+    },
+    "2026-W35": {
+      "completionByCategory": {
+        "슬로우 조깅": 0.0,
+        "스쿼트": 0.0,
+        "데드리프트": 0.0,
+        "런지": 0.0,
+        "플랭크": 0.0,
+        "간식섭취": 0.0,
+        "바이올린": 0.0,
+        "고지혈증약": 0.0,
+        "코큐텐": 0.0,
+        "비타민C/D": 0.0,
+        "마그네슘": 0.0
+      },
+      "recordedDays": {
+        "아점": 0,
+        "저녁": 0
+      },
+      "adjustmentsApplied": [
+        "간식섭취 체크 기준을 더 쉽게 낮추는 걸 제안",
+        "바이올린 연습 시간을 줄여서 꾸준히 이어가는 걸 제안"
+      ],
+      "reflection": {},
+      "byDay": {},
+      "meals": {},
+      "exerciseDaysThisWeek": 0,
+      "exerciseStreak": 0,
+      "kmThisWeek": 0.0,
+      "nutrition": {
+        "dailyTotals": {},
+        "weeklyAverage": {
+          "kcal": 0.0,
+          "protein": 0.0,
+          "fat": 0.0,
+          "carb": 0.0
+        },
+        "unmatchedFoodItems": [],
+        "recommendations": []
+      }
     }
   }
 }

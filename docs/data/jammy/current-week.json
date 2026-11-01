@@ -1,11 +1,11 @@
 {
-  "weekId": "2026-W44",
-  "startDate": "2026-10-26",
-  "endDate": "2026-11-01",
+  "weekId": "2026-W45",
+  "startDate": "2026-11-02",
+  "endDate": "2026-11-08",
   "days": [
     {
       "day": "월",
-      "date": "2026-10-26",
+      "date": "2026-11-02",
       "exercise": {
         "type": "slowJog",
         "label": "슬로우 조깅",
@@ -31,7 +31,7 @@
     },
     {
       "day": "화",
-      "date": "2026-10-27",
+      "date": "2026-11-03",
       "exercise": {
         "type": "strengthA",
         "label": "근력 A",
@@ -57,7 +57,7 @@
     },
     {
       "day": "수",
-      "date": "2026-10-28",
+      "date": "2026-11-04",
       "exercise": {
         "type": "slowJog",
         "label": "슬로우 조깅",
@@ -83,7 +83,7 @@
     },
     {
       "day": "목",
-      "date": "2026-10-29",
+      "date": "2026-11-05",
       "exercise": {
         "type": "strengthB",
         "label": "근력 B",
@@ -109,7 +109,7 @@
     },
     {
       "day": "금",
-      "date": "2026-10-30",
+      "date": "2026-11-06",
       "exercise": {
         "type": "recoveryJog",
         "label": "회복 조깅",
@@ -135,7 +135,7 @@
     },
     {
       "day": "토",
-      "date": "2026-10-31",
+      "date": "2026-11-07",
       "exercise": {
         "type": "strengthC",
         "label": "근력 C",
@@ -161,7 +161,7 @@
     },
     {
       "day": "일",
-      "date": "2026-11-01",
+      "date": "2026-11-08",
       "exercise": {
         "type": "recoveryReflect",
         "label": "회복 + 회고",
